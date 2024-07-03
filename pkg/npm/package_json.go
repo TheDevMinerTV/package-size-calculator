@@ -24,6 +24,7 @@ func (p PackageJSON) AsDependency() DependencyInfo {
 	return DependencyInfo{
 		Name:    p.Name,
 		Version: p.Version,
+		Type:    DependencyTypeNormal,
 	}
 }
 

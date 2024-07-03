@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 )
 
 type PackageLockJSON struct {
-	LockfileVersion int
-	Packages        map[string]PackageJSON
+	LockfileVersion int            `json:"lockfileVersion"`
+	Packages        LockedPackages `json:"packages"`
 }
 
 func ParsePackageLockJSON(path string) (*PackageLockJSON, error) {
@@ -33,4 +34,25 @@ func ParsePackageLockJSON(path string) (*PackageLockJSON, error) {
 	}
 
 	return &pl, nil
+}
+
+type LockedPackages map[string]PackageJSON
+
+func (p *LockedPackages) UnmarshalJSON(data []byte) error {
+	var packages map[string]PackageJSON
+	if err := json.Unmarshal(data, &packages); err != nil {
+		return err
+	}
+
+	*p = make(LockedPackages, len(packages))
+
+	for name, pkg := range packages {
+		name := strings.TrimPrefix(name, "node_modules/")
+
+		pkg.Name = name
+
+		(*p)[name] = pkg
+	}
+
+	return nil
 }

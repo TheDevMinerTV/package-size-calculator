@@ -1,10 +1,15 @@
 package ui_components
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/fatih/color"
 	"github.com/manifoldco/promptui"
+)
+
+var (
+	ErrRetry = errors.New("next")
 )
 
 type EditableList[T fmt.Stringer] struct {
@@ -15,7 +20,7 @@ type EditableList[T fmt.Stringer] struct {
 
 func NewEditableList[T Item](title string, convertFn StringToItemConvertFunc[T]) *EditableList[T] {
 	return &EditableList[T]{
-		title:     title,
+		title:     fmt.Sprintf("%s (press Enter to continue)", title),
 		items:     []*itemContainer[T]{},
 		convertFn: convertFn,
 	}
@@ -38,22 +43,27 @@ func (s EditableList[T]) Run() ([]T, error) {
 }
 
 func (s *EditableList[T]) selectItems() ([]*itemContainer[T], error) {
-	prompt := promptui.Prompt{Label: s.title}
-	packageName, err := prompt.Run()
+	for _, item := range s.items {
+		fmt.Printf("%s %s (%s)\n", color.GreenString("-"), color.HiWhiteString(item.Data.String()), color.HiBlackString(item.Label))
+	}
+
+	prompt := promptui.Prompt{Label: s.title, HideEntered: true}
+
+	input, err := prompt.Run()
 	if err != nil {
 		return nil, err
 	}
 
-	if packageName != "" {
-		item, err := s.convertFn(packageName)
-		if err != nil {
-			return nil, err
-		}
-
-		s.items = append(s.items, &itemContainer[T]{Label: item.String(), Data: item, Selected: false})
-
-		return s.selectItems()
+	if input == "" {
+		return s.items, nil
 	}
 
-	return s.items, nil
+	item, err := s.convertFn(input)
+	if err != nil && !errors.Is(err, ErrRetry) {
+		return s.selectItems()
+	} else if err == nil {
+		s.items = append(s.items, &itemContainer[T]{Label: input, Data: item, Selected: false})
+	}
+
+	return s.selectItems()
 }

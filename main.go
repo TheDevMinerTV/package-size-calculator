@@ -3,10 +3,12 @@ package main
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"os"
 	"package_size/pkg/npm"
 	"package_size/pkg/time_helpers"
 	"package_size/pkg/ui_components"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -16,7 +18,6 @@ import (
 	docker_client "github.com/docker/docker/client"
 	"github.com/dustin/go-humanize"
 	"github.com/manifoldco/promptui"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -85,33 +86,26 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to select version")
 	}
 
-	j := packageInfo.Versions[packageVersion]
-	log.Info().Str("version", j.JSON.Version).Msg("Selected version")
+	packageJson := packageInfo.Versions[packageVersion]
+	log.Info().Str("version", packageJson.JSON.Version).Msg("Selected version")
 
-	downloadsLastWeek := downloads[j.JSON.Version]
+	downloadsLastWeek := downloads[packageJson.JSON.Version]
 
-	oldPackageSize, _, err := measurePackageSize(dockerC, packageInfo.LatestVersion.JSON.AsDependency())
+	oldPackageSize, tmpDir, err := measurePackageSize(dockerC, packageInfo.LatestVersion.JSON.AsDependency())
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to measure package size")
 	}
 
-	deps, err := npmClient.ResolveDependencies(&j.JSON, true)
+	log.Info().Str("package", packageJson.JSON.AsDependency().AsNPMString()).Str("size", humanize.Bytes(oldPackageSize)).Msg("Package size")
+
+	pkgLock, err := npm.ParsePackageLockJSON(filepath.Join(tmpDir, "package-lock.json"))
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to resolve dependencies")
+		log.Fatal().Err(err).Msg("Failed to parse package-lock.json")
 	}
 
-	dependencies := make([]npm.DependencyInfo, 0, len(j.JSON.Dependencies)+len(j.JSON.DevDependencies)+1)
-	for _, k := range j.JSON.Dependencies {
-		dep, ok := deps[k.Name]
-		if !ok {
-			log.Warn().Str("dependency", k.Name).Msg("Dependency not found")
-			continue
-		}
-
-		dependencies = append(dependencies, dep.AsDependency())
-	}
-	for _, k := range j.JSON.DevDependencies {
-		dep, ok := deps[k.Name]
+	dependencies := make([]npm.DependencyInfo, 0, len(packageJson.JSON.Dependencies)+1)
+	for _, k := range packageJson.JSON.Dependencies {
+		dep, ok := pkgLock.Packages[k.Name]
 		if !ok {
 			log.Warn().Str("dependency", k.Name).Msg("Dependency not found")
 			continue
@@ -126,17 +120,17 @@ func main() {
 	}
 
 	for _, d := range removedDependencies {
-		log.Info().Str("dependency", d.AsNPMString()).Msg("Removed dependency")
+		log.Info().Msgf("Marked dependency as removed: %s", d.AsNPMString())
 	}
-
-	// addedDependencies := []npm.PackageJSON{}
 
 	addedDependencies, err := ui_components.NewEditableList("Added dependencies", resolveNPMPackage(npmClient)).Run()
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to run editable list")
 	}
 
-	log.Info().Str("size", humanize.Bytes(oldPackageSize)).Msg("Package size")
+	for _, d := range addedDependencies {
+		log.Info().Msgf("Marked dependency as added: %s", d.AsDependency().AsNPMString())
+	}
 
 	type dependencyPackageInfo struct {
 		Dependency        npm.DependencyInfo
@@ -153,10 +147,6 @@ func main() {
 			if err != nil {
 				l.Error().Err(err).Msg("Failed to fetch package downloads")
 			} else {
-				for k, v := range downloads {
-					l.Info().Msgf("Downloads last week: %v: %v", k, v)
-				}
-
 				downloadsLastWeek = downloads[p.Version]
 				l.Info().Msgf("Downloads last week: %v", downloadsLastWeek)
 			}
@@ -233,7 +223,7 @@ func main() {
 			info := addedPackageSizes[p.AsDependency().AsNPMString()]
 			log.Info().Msgf("  %s@%s: %s", p.Name, p.Version, humanize.Bytes(info.Size))
 			log.Info().Msgf("    Latest version: %s", info.Dependency.Version)
-			log.Info().Msgf("    Downloads last week: %s", humanize.FormatInteger("#,###.", int(info.DownloadsLastWeek)))
+			log.Info().Msgf("    Downloads last week: %s (+%s)", humanize.FormatInteger("#,###.", int(info.DownloadsLastWeek)), humanize.FormatInteger("#,###.", int(downloadsLastWeek)))
 			log.Info().Msgf("    Estimated traffic last week: %s", humanize.Bytes(info.DownloadsLastWeek*info.Size))
 		}
 	}
@@ -246,14 +236,43 @@ func main() {
 		newTotalSize += p.Size
 	}
 
-	pcChange := float64(newTotalSize) * 100 / float64(oldPackageSize)
+	pcSize := 100 * float64(newTotalSize) / float64(oldPackageSize)
+	sizeChange := 100 - float64(oldPackageSize)*100/float64(newTotalSize)
+	pcChangeFmt := humanize.FormatFloat("#,###.##", sizeChange)
+	if sizeChange == 0 {
+		pcChangeFmt = " " + pcChangeFmt
+	} else if sizeChange > 0 {
+		pcChangeFmt = "+" + pcChangeFmt
+	}
+
+	oldTrafficLastWeek := big.NewInt(int64(downloadsLastWeek * oldPackageSize))
+	oldTrafficLastWeekFmt := humanize.BigBytes(oldTrafficLastWeek)
+	estTrafficNextWeek := big.NewInt(int64(downloadsLastWeek * newTotalSize))
+	estTrafficNextWeekFmt := humanize.BigBytes(estTrafficNextWeek)
+
+	estTrafficChange := big.NewInt(0).Sub(oldTrafficLastWeek, estTrafficNextWeek)
+	estTrafficChangeWord := "saved"
+	if estTrafficChange.Cmp(big.NewInt(0)) < 0 {
+		estTrafficChange.Mul(estTrafficChange, big.NewInt(-1))
+		estTrafficChangeWord = "wasted"
+	}
+	estTrafficChangeFmt := humanize.BigBytes(estTrafficChange)
 
 	log.Info().
 		Msgf(
-			"Total size change: %s -> %s (%s%%)",
+			"Total size change: %s -> %s (%s%%, %s%%)",
 			humanize.Bytes(oldPackageSize),
 			humanize.Bytes(newTotalSize),
-			humanize.FormatFloat("#,###.##", pcChange),
+			humanize.FormatFloat("#,###.##", pcSize),
+			pcChangeFmt,
+		)
+	log.Info().
+		Msgf(
+			"Estimated traffic change: %s -> %s (%s %s / week)",
+			oldTrafficLastWeekFmt,
+			estTrafficNextWeekFmt,
+			estTrafficChangeFmt,
+			estTrafficChangeWord,
 		)
 }
 
@@ -271,8 +290,11 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 
 		split := strings.Split(s, " ")
 		if len(split) > 2 {
-			l.Fatal().Msg("Invalid package format")
+			log.Error().Msg("Invalid package format")
+			return nil, ui_components.ErrRetry
 		}
+
+		log.Info().Msgf("Resolving package \"%s\"...", s)
 
 		info, err := client.GetPackageInfo(split[0])
 		if err != nil {
@@ -286,9 +308,12 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 			return &latest, nil
 		}
 
+		l = log.With().Str("constraint", split[1]).Logger()
+
 		c, err := npm_version.NewConstraints(split[1])
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to create constraints")
+			log.Error().Err(err).Msg("Failed to create constraints")
+			return nil, ui_components.ErrRetry
 		}
 
 		for _, v := range info.Versions {
@@ -299,6 +324,8 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 			}
 		}
 
-		return nil, fmt.Errorf("no version found for %s", c)
+		log.Error().Msg("No matching version could be found")
+
+		return nil, ui_components.ErrRetry
 	}
 }
