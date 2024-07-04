@@ -33,7 +33,7 @@ func main() {
 	// zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	log.Info().Msgf("Package size calculator v%s (%s, built on %s)", build.Version, build.Commit, build.BuildTime)
+	log.Info().Msgf("Package size calculator %s (%s, built on %s)", build.Version, build.Commit, build.BuildTime)
 
 	npmClient := npm.New()
 
