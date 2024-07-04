@@ -4,6 +4,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"package_size_calculator/internal/build"
 	"package_size_calculator/pkg/npm"
 	"package_size_calculator/pkg/time_helpers"
 	"package_size_calculator/pkg/ui_components"
@@ -31,6 +32,8 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	// zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	log.Info().Msgf("Package size calculator v%s (%s, built on %s)", build.Version, build.Commit, build.BuildTime)
 
 	npmClient := npm.New()
 
