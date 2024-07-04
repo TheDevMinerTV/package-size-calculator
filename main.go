@@ -90,6 +90,7 @@ func main() {
 
 	deps := combineDependencies(removedDependencies, addedDependencies)
 	for depName, dep := range deps {
+		// TODO: Parallelize
 		l := log.With().Str("package", depName).Logger()
 
 		downloads, err := npmClient.GetPackageDownloadsLastWeek(dep.Name)
