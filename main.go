@@ -2,17 +2,14 @@ package main
 
 import (
 	"math"
-	"math/big"
 	"os"
 	"package_size_calculator/internal/build"
 	"package_size_calculator/pkg/npm"
-	"package_size_calculator/pkg/time_helpers"
 	"package_size_calculator/pkg/ui_components"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
-	"time"
 
 	npm_version "github.com/aquasecurity/go-npm-version/pkg"
 	docker_client "github.com/docker/docker/client"
@@ -45,43 +42,8 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to download Node 20 image")
 	}
 
-	packageName, err := runPrompt(&promptui.Prompt{Label: "Package"})
-	if err != nil {
-		log.Fatal().Err(err).Msg("Prompt failed")
-	}
-
-	log.Info().Str("package", packageName).Msg("Fetching package info")
-
-	packageInfo, err := npmClient.GetPackageInfo(packageName)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to fetch package info")
-	}
-
-	downloads, err := npmClient.GetPackageDownloadsLastWeek(packageName)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to fetch package downloads")
-	}
-
-	log.Debug().Msgf("Fetched package info for %s", packageInfo.Name)
-
-	packageVersion := promptPackageVersion(packageInfo)
-	packageJson := packageInfo.Versions[packageVersion]
-	downloadsLastWeek := downloads[packageJson.JSON.Version]
-	log.Info().Str("version", packageJson.JSON.Version).Msg("Selected version")
-
-	oldPackageSize, tmpDir, err := measurePackageSize(dockerC, packageJson.JSON.AsDependency())
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to measure package size")
-	}
-
-	log.Info().Str("package", packageJson.JSON.AsDependency().AsNPMString()).Str("size", humanize.Bytes(oldPackageSize)).Msg("Package size")
-
-	pkgLock, err := npm.ParsePackageLockJSON(filepath.Join(tmpDir, "package-lock.json"))
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to parse package-lock.json")
-	}
-
-	removedDependencies := promptRemovedDependencies(&packageJson.JSON, pkgLock)
+	modifiedPackage := promptPackage(npmClient, dockerC)
+	removedDependencies := promptRemovedDependencies(modifiedPackage.Package.JSON, modifiedPackage.Lockfile)
 
 	addedDependencies, err := ui_components.NewEditableList("Added dependencies", resolveNPMPackage(npmClient)).Run()
 	if err != nil {
@@ -98,7 +60,7 @@ func main() {
 			l.Error().Err(err).Msg("Failed to fetch package downloads")
 		} else {
 			dep.DownloadsLastWeek = downloads[dep.Version]
-			l.Info().Msgf("Downloads last week: %v", downloadsLastWeek)
+			l.Info().Msgf("Downloads last week: %v", dep.DownloadsLastWeek)
 		}
 
 		dep.Size, _, err = measurePackageSize(dockerC, dep.DependencyInfo)
@@ -109,92 +71,7 @@ func main() {
 		l.Info().Msgf("Package size: %s", humanize.Bytes(dep.Size))
 	}
 
-	log.Info().Send()
-	log.Info().Msgf("Package size report")
-	log.Info().Msgf("===================")
-	log.Info().Send()
-	log.Info().Msgf("Package info for %s: %s", packageJson.JSON.AsDependency().String(), humanize.Bytes(oldPackageSize))
-	log.Info().Msgf("  Released: %s (%s ago)", fmtInt(int(downloads[packageJson.JSON.Version])), time_helpers.FormatDuration(time.Since(packageJson.ReleaseTime)))
-	log.Info().Msgf("  Downloads last week of %s: %s", packageVersion, fmtInt(int(downloadsLastWeek)))
-	log.Info().Msgf("  Estimated traffic last week: %s", humanize.Bytes(downloadsLastWeek*oldPackageSize))
-
-	if packageJson.JSON.Version != packageInfo.LatestVersion.JSON.Version {
-		log.Info().Msgf("  Latest version: %s (%s ago)", packageInfo.LatestVersion.Version, time_helpers.FormatDuration(time.Since(packageInfo.LatestVersion.ReleaseTime)))
-	}
-
-	if len(removedDependencies) > 0 {
-		log.Info().Msg("Removed dependencies:")
-		for _, p := range removedDependencies {
-			info := deps[p.AsNPMString()]
-			traffic := info.DownloadsLastWeek * info.Size
-			pcTraffic := float64(downloadsLastWeek) * 100 / float64(info.DownloadsLastWeek)
-
-			log.Info().Msgf("  %s@%s: %s", p.Name, p.Version, humanize.Bytes(info.Size))
-			log.Info().Msgf("    Downloads last week: %s (%s)", fmtInt(int(info.DownloadsLastWeek)), fmtInt(int(downloadsLastWeek)))
-			log.Info().Msgf("    Estimated traffic last week: %s (%s coming from \"%s\")", humanize.Bytes(traffic), humanize.Bytes(traffic*uint64(pcTraffic)/100), packageJson.JSON.AsDependency().AsNPMString())
-			log.Info().Msgf("    Estimated %% of traffic because of \"%s\": %s%%", packageJson.Version, fmtPercent(pcTraffic))
-		}
-	}
-
-	if len(addedDependencies) > 0 {
-		log.Info().Msg("Added dependencies:")
-		for _, p := range addedDependencies {
-			info := deps[p.AsDependency().AsNPMString()]
-
-			log.Info().Msgf("  %s@%s: %s", p.Name, p.Version, humanize.Bytes(info.Size))
-			log.Info().Msgf("    Latest version: %s", info.Version)
-			log.Info().Msgf("    Downloads last week: %s (+%s)", fmtInt(int(info.DownloadsLastWeek)), fmtInt(int(downloadsLastWeek)))
-			log.Info().Msgf("    Estimated traffic last week: %s", humanize.Bytes(info.DownloadsLastWeek*info.Size))
-		}
-	}
-
-	newTotalSize := oldPackageSize
-	for _, p := range deps {
-		if p.Type == DependencyRemoved {
-			newTotalSize -= p.Size
-		} else {
-			newTotalSize += p.Size
-		}
-	}
-
-	pcSize := 100 * float64(newTotalSize) / float64(oldPackageSize)
-	sizeChange := 100 - float64(oldPackageSize)*100/float64(newTotalSize)
-	pcChangeFmt := fmtPercent(sizeChange)
-	if sizeChange == 0 {
-		pcChangeFmt = " " + pcChangeFmt
-	} else if sizeChange > 0 {
-		pcChangeFmt = "+" + pcChangeFmt
-	}
-
-	oldTrafficLastWeek := big.NewInt(int64(downloadsLastWeek * oldPackageSize))
-	oldTrafficLastWeekFmt := humanize.BigBytes(oldTrafficLastWeek)
-	estTrafficNextWeek := big.NewInt(int64(downloadsLastWeek * newTotalSize))
-	estTrafficNextWeekFmt := humanize.BigBytes(estTrafficNextWeek)
-
-	estTrafficChange := big.NewInt(0).Sub(oldTrafficLastWeek, estTrafficNextWeek)
-	estTrafficChangeWord := "saved"
-	if estTrafficChange.Cmp(big.NewInt(0)) < 0 {
-		estTrafficChange.Mul(estTrafficChange, big.NewInt(-1))
-		estTrafficChangeWord = "wasted"
-	}
-	estTrafficChangeFmt := humanize.BigBytes(estTrafficChange)
-
-	log.Info().
-		Msgf(
-			"Total size change: %s -> %s (%s%%, %s%%)",
-			humanize.Bytes(oldPackageSize),
-			humanize.Bytes(newTotalSize),
-			fmtPercent(pcSize),
-			pcChangeFmt,
-		)
-	log.Info().
-		Msgf(
-			"Estimated traffic change: %s -> %s (%s %s / week)",
-			oldTrafficLastWeekFmt,
-			estTrafficNextWeekFmt,
-			estTrafficChangeFmt,
-			estTrafficChangeWord,
-		)
+	printReport(modifiedPackage, removedDependencies, addedDependencies, deps)
 }
 
 func runSelect(s *promptui.Select) (int, string, error) {
@@ -277,7 +154,7 @@ func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependen
 	deps := map[string]*dependencyPackageInfo{}
 
 	for _, d := range removedDependencies {
-		deps[d.AsNPMString()] = &dependencyPackageInfo{
+		deps[d.String()] = &dependencyPackageInfo{
 			DependencyInfo:    d,
 			Type:              DependencyRemoved,
 			Size:              0,
@@ -286,7 +163,7 @@ func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependen
 	}
 
 	for _, d := range addedDependencies {
-		deps[d.AsDependency().AsNPMString()] = &dependencyPackageInfo{
+		deps[d.String()] = &dependencyPackageInfo{
 			DependencyInfo:    d.AsDependency(),
 			Type:              DependencyAdded,
 			Size:              0,
@@ -297,7 +174,7 @@ func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependen
 	return deps
 }
 
-func promptRemovedDependencies(packageJson *npm.PackageJSON, pkgLock *npm.PackageLockJSON) []npm.DependencyInfo {
+func promptRemovedDependencies(packageJson npm.PackageJSON, pkgLock *npm.PackageLockJSON) []npm.DependencyInfo {
 	dependencies := make([]npm.DependencyInfo, 0, len(packageJson.Dependencies))
 	for _, k := range packageJson.Dependencies {
 		dep, ok := pkgLock.Packages[k.Name]
@@ -339,4 +216,66 @@ func promptPackageVersion(packageInfo *npm.PackageInfo) string {
 	}
 
 	return packageVersion
+}
+
+func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packageInfo {
+	packageName, err := runPrompt(&promptui.Prompt{Label: "Package"})
+	if err != nil {
+		log.Fatal().Err(err).Msg("Prompt failed")
+	}
+
+	log.Info().Str("package", packageName).Msg("Fetching package info")
+
+	b := &packageInfo{}
+
+	packageInfo, err := npmClient.GetPackageInfo(packageName)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to fetch package info")
+	}
+
+	b.Info = packageInfo
+
+	log.Debug().Msgf("Fetched package info for %s", packageInfo.Name)
+
+	packageVersion := promptPackageVersion(packageInfo)
+	b.Package = packageInfo.Versions[packageVersion]
+	log.Info().Str("version", packageVersion).Msg("Selected version")
+
+	downloads, err := npmClient.GetPackageDownloadsLastWeek(packageInfo.Name)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to fetch package downloads")
+	}
+
+	b.DownloadsLastWeek = downloads[packageVersion]
+
+	b.Size, b.TmpDir, err = measurePackageSize(dockerC, b.AsDependency())
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to measure package size")
+	}
+
+	log.Info().Str("package", b.String()).Str("size", humanize.Bytes(b.Size)).Msg("Package size")
+
+	b.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.TmpDir, "package-lock.json"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to parse package-lock.json")
+	}
+
+	return b
+}
+
+type packageInfo struct {
+	Info              *npm.PackageInfo
+	Package           npm.PackageVersion
+	Lockfile          *npm.PackageLockJSON
+	DownloadsLastWeek uint64
+	Size              uint64
+	TmpDir            string
+}
+
+func (b *packageInfo) String() string {
+	return b.Package.JSON.String()
+}
+
+func (b *packageInfo) AsDependency() npm.DependencyInfo {
+	return b.Package.JSON.AsDependency()
 }

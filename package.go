@@ -11,11 +11,11 @@ import (
 )
 
 func measurePackageSize(dockerC *docker_client.Client, package_ npm.DependencyInfo) (uint64, string, error) {
-	l := log.With().Str("package", package_.AsNPMString()).Logger()
+	l := log.With().Str("package", package_.String()).Logger()
 
 	tempDir, err := installPackageInContainer(dockerC, package_)
 	if err != nil {
-		return 0, tempDir, errors.Wrapf(err, "failed to install package \"%s\"", package_.AsNPMString())
+		return 0, tempDir, errors.Wrapf(err, "failed to install package \"%s\"", package_.String())
 	}
 
 	l.Debug().Str("tempDir", tempDir).Msg("Installed package")

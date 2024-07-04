@@ -16,7 +16,7 @@ type PackageJSON struct {
 }
 
 func (p PackageJSON) String() string {
-	return p.AsDependency().AsNPMString()
+	return p.AsDependency().String()
 }
 
 func (p PackageJSON) AsDependency() DependencyInfo {

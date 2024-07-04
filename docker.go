@@ -31,13 +31,13 @@ func downloadBaseImage(c *docker_client.Client) error {
 func installPackageInContainer(dockerC *docker_client.Client, package_ npm.DependencyInfo) (string, error) {
 	ctx := context.Background()
 
-	tempDir, err := os.MkdirTemp(os.TempDir(), fmt.Sprintf("package_size_%s_*", internal.SanetizeFileName(package_.AsNPMString())))
+	tempDir, err := os.MkdirTemp(os.TempDir(), fmt.Sprintf("package_size_%s_*", internal.SanetizeFileName(package_.String())))
 	if err != nil {
 		return "", err
 	}
 	log.Trace().Str("dir", tempDir).Msg("Created temp dir")
 
-	cmd := []string{"npm", "install", "--loglevel", "verbose", package_.AsNPMString()}
+	cmd := []string{"npm", "install", "--loglevel", "verbose", package_.String()}
 
 	config := docker_container.Config{
 		Image:        BaseImage,
