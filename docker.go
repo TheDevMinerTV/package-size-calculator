@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"package_size/internal"
-	"package_size/pkg/npm"
+	"package_size_calculator/internal"
+	"package_size_calculator/pkg/npm"
 	"path/filepath"
 
 	docker_container "github.com/docker/docker/api/types/container"
