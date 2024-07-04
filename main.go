@@ -69,7 +69,7 @@ func main() {
 	downloadsLastWeek := downloads[packageJson.JSON.Version]
 	log.Info().Str("version", packageJson.JSON.Version).Msg("Selected version")
 
-	oldPackageSize, tmpDir, err := measurePackageSize(dockerC, packageInfo.LatestVersion.JSON.AsDependency())
+	oldPackageSize, tmpDir, err := measurePackageSize(dockerC, packageJson.JSON.AsDependency())
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to measure package size")
 	}
