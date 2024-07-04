@@ -113,11 +113,14 @@ func main() {
 	log.Info().Msgf("Package size report")
 	log.Info().Msgf("===================")
 	log.Info().Send()
-	log.Info().Msgf("Package info for %s: %s", packageInfo.Name, humanize.Bytes(oldPackageSize))
-	log.Info().Msgf("  Latest version: %s", packageInfo.LatestVersion.Version)
-	log.Info().Msgf("  Last released: %s (%s ago)", packageInfo.LatestVersion.ReleaseTime, time_helpers.FormatDuration(time.Since(packageInfo.LatestVersion.ReleaseTime)))
-	log.Info().Msgf("  Downloads last week of %s: %s", packageInfo.LatestVersion.Version, fmtInt(int(downloadsLastWeek)))
+	log.Info().Msgf("Package info for %s: %s", packageJson.JSON.AsDependency().String(), humanize.Bytes(oldPackageSize))
+	log.Info().Msgf("  Released: %s (%s ago)", fmtInt(int(downloads[packageJson.JSON.Version])), time_helpers.FormatDuration(time.Since(packageJson.ReleaseTime)))
+	log.Info().Msgf("  Downloads last week of %s: %s", packageVersion, fmtInt(int(downloadsLastWeek)))
 	log.Info().Msgf("  Estimated traffic last week: %s", humanize.Bytes(downloadsLastWeek*oldPackageSize))
+
+	if packageJson.JSON.Version != packageInfo.LatestVersion.JSON.Version {
+		log.Info().Msgf("  Latest version: %s (%s ago)", packageInfo.LatestVersion.Version, time_helpers.FormatDuration(time.Since(packageInfo.LatestVersion.ReleaseTime)))
+	}
 
 	if len(removedDependencies) > 0 {
 		log.Info().Msg("Removed dependencies:")
