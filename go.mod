@@ -3,7 +3,7 @@ module package_size_calculator
 go 1.22.4
 
 require (
-	github.com/docker/docker v26.1.4+incompatible
+	github.com/docker/docker v27.0.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/manifoldco/promptui v0.9.0
 	github.com/puzpuzpuz/xsync/v3 v3.2.0
