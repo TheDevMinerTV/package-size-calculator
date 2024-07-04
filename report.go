@@ -155,7 +155,7 @@ func printReport(
 	)
 	fmt.Printf(
 		"%s: %s %s %s %s\n",
-		bold.Sprint("Estimated traffic"),
+		bold.Sprint("Estimated traffic over a week"),
 		oldTrafficLastWeekFmt,
 		arrow,
 		indicatorColor.Sprint(estTrafficNextWeekFmt),
