@@ -1,4 +1,4 @@
-module package_size
+module package_size_calculator
 
 go 1.22.4
 

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"package_size/internal"
-	"package_size/pkg/npm"
+	"package_size_calculator/internal"
+	"package_size_calculator/pkg/npm"
 	"path/filepath"
 
 	docker_client "github.com/docker/docker/client"

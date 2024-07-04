@@ -1,0 +1,60 @@
+name: Build binaries
+
+on:
+  push:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { goos: "linux", goarch: "amd64" }
+          - { goos: "linux", goarch: "arm" }
+          - { goos: "linux", goarch: "arm64" }
+          - { goos: "freebsd", goarch: "amd64" }
+          - { goos: "windows", goarch: "amd64" }
+          - { goos: "darwin", goarch: "amd64" }
+          - { goos: "darwin", goarch: "arm64" }
+    env:
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      TARGET: udp-proxy-${{ matrix.goos }}-${{ matrix.goarch }}
+    name: Build ${{ matrix.goos }} ${{ matrix.goarch }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+
+      - name: Build
+        env:
+          PACKAGE: package_size_calculator/internal/build
+        run: |
+          VERSION="$(git describe --tags --always --abbrev=0 --match='v[0-9]*.[0-9]*.[0-9]*' 2> /dev/null | sed 's/^.//')"
+          COMMIT="$(git rev-parse --short HEAD)"
+          BUILD_TIME=$(date '+%Y-%m-%dT%H:%M:%S')
+
+          LDFLAGS="-X '${PACKAGE}.Version=${VERSION}' -X '${PACKAGE}.Commit=${COMMIT}' -X '${PACKAGE}.BuildTime=${BUILD_TIME}'"
+
+          mkdir -p $TARGET
+          CGO_ENABLED=0 go build -ldflags="$LDFLAGS" -o $TARGET/package-size-calculator .
+          cp LICENSE README.md $TARGET
+          tar -czf $TARGET.tar.gz $TARGET
+
+      - name: Upload action artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.TARGET }}
+          path: ${{ env.TARGET }}.tar.gz
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'release'
+        with:
+          files: ${{ env.TARGET }}.tar.gz
