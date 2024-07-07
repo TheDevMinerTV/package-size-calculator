@@ -80,6 +80,8 @@ github.com/puzpuzpuz/xsync/v3 v3.2.0 h1:9AzuUeF88YC5bK8u2vEG1Fpvu4wgpM1wfPIExfaa
 github.com/puzpuzpuz/xsync/v3 v3.2.0/go.mod h1:VjzYrABPabuM4KyBh1Ftq6u8nhwY5tBPKP9jpmh0nnA=
 github.com/puzpuzpuz/xsync/v3 v3.3.0 h1:vX9b3zg+gIivLYwoHav6CoI9PylvXqdfhr/nFyu8O5o=
 github.com/puzpuzpuz/xsync/v3 v3.3.0/go.mod h1:VjzYrABPabuM4KyBh1Ftq6u8nhwY5tBPKP9jpmh0nnA=
+github.com/puzpuzpuz/xsync/v3 v3.3.1 h1:vZPJk3OOfoaSjy3cdTX3BZxhDCUVp9SqdHnd+ilGlbQ=
+github.com/puzpuzpuz/xsync/v3 v3.3.1/go.mod h1:VjzYrABPabuM4KyBh1Ftq6u8nhwY5tBPKP9jpmh0nnA=
 github.com/rs/xid v1.5.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
 github.com/rs/zerolog v1.33.0 h1:1cU2KZkvPxNyfgEmhHAz/1A9Bz+llsdYzklWFzgp0r8=
 github.com/rs/zerolog v1.33.0/go.mod h1:/7mN4D5sKwJLZQ2b/znpjC3/GQWY/xaDXUM0kKWRHss=
