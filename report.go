@@ -134,15 +134,16 @@ func printReport(
 	estTrafficNextWeekFmt := humanize.BigBytes(estTrafficNextWeek)
 
 	estTrafficChange := big.NewInt(0).Sub(oldTrafficLastWeek, estTrafficNextWeek)
-	estTrafficChangeFmt := humanize.BigBytes(estTrafficChange)
+	estTrafficChangeFmt := ""
 	if estTrafficChange.Cmp(big.NewInt(0)) == 0 {
-		estTrafficChangeFmt = indicatorColor.Sprint(estTrafficChangeFmt)
+		estTrafficChangeFmt = "No change"
 	} else if estTrafficChange.Cmp(big.NewInt(0)) > 0 {
-		estTrafficChange.Mul(estTrafficChange, big.NewInt(-1))
-		estTrafficChangeFmt = indicatorColor.Sprintf("%s saved", estTrafficChangeFmt)
+		estTrafficChangeFmt = "%s saved"
 	} else {
-		estTrafficChangeFmt = indicatorColor.Sprintf("%s wasted", estTrafficChangeFmt)
+		estTrafficChange.Mul(estTrafficChange, big.NewInt(-1))
+		estTrafficChangeFmt = "%s wasted"
 	}
+	estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
 
 	fmt.Println()
 	fmt.Printf(
@@ -165,6 +166,8 @@ func printReport(
 }
 
 func grayParens(s string, args ...any) string {
-	f := fmt.Sprintf("(%s)", s)
-	return gray.Sprintf(f, args...)
+	a := gray.Sprint("(")
+	b := gray.Sprint(")")
+
+	return fmt.Sprintf("%s%s%s", a, fmt.Sprintf(s, args...), b)
 }
