@@ -165,6 +165,8 @@ func printReport(
 }
 
 func grayParens(s string, args ...any) string {
-	f := fmt.Sprintf("(%s)", s)
-	return gray.Sprintf(f, args...)
+	a := gray.Sprint("(")
+	b := gray.Sprint(")")
+
+	return fmt.Sprintf("%s%s%s", a, fmt.Sprintf(s, args...), b)
 }
