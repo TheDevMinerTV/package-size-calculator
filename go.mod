@@ -6,7 +6,7 @@ require (
 	github.com/docker/docker v27.0.3+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/manifoldco/promptui v0.9.0
-	github.com/puzpuzpuz/xsync/v3 v3.3.1
+	github.com/puzpuzpuz/xsync/v3 v3.4.0
 	github.com/rs/zerolog v1.33.0
 )
 
