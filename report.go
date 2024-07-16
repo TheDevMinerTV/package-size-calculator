@@ -154,23 +154,7 @@ func printReport(
 
 	fmt.Println()
 	reportSizeDifference(oldPackageSize, newPackageSize, downloadsLastWeek, modifiedPackage.TotalDownloads)
-
-	var indicatorColor *color.Color
-	if oldSubdependencies > newSubdependencies {
-		indicatorColor = boldGreen
-	} else {
-		indicatorColor = boldRed
-	}
-	subdepsFmt := indicatorColor.Sprint(fmtInt(newSubdependencies))
-
-	fmt.Printf(
-		"%s: %s %s %s %s\n",
-		bold.Sprint("Subdependencies"),
-		fmtInt(oldSubdependencies),
-		arrow,
-		subdepsFmt,
-		grayParens("%s", indicatorColor.Sprint(fmtInt(newSubdependencies-oldSubdependencies))),
-	)
+	reportSubdependencies(oldSubdependencies, newSubdependencies)
 }
 
 func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool, indentation int) {
@@ -299,6 +283,25 @@ func reportSizeDifference(oldSize, newSize, downloads, totalDownloads uint64) {
 		arrow,
 		indicatorColor.Sprint(scaledEstTrafficNextWeekFmt),
 		grayParens("%s", scaledEstTrafficChangeFmt),
+	)
+}
+
+func reportSubdependencies(oldSubdependencies, newSubdependencies int) {
+	var indicatorColor *color.Color
+	if oldSubdependencies > newSubdependencies {
+		indicatorColor = boldGreen
+	} else {
+		indicatorColor = boldRed
+	}
+	subdepsFmt := indicatorColor.Sprint(fmtInt(newSubdependencies))
+
+	fmt.Printf(
+		"%s: %s %s %s %s\n",
+		bold.Sprint("Subdependencies"),
+		fmtInt(oldSubdependencies),
+		arrow,
+		subdepsFmt,
+		grayParens("%s", indicatorColor.Sprint(fmtInt(newSubdependencies-oldSubdependencies))),
 	)
 }
 
