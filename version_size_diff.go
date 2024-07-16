@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"package_size_calculator/pkg/npm"
+	"path/filepath"
 
 	docker_client "github.com/docker/docker/client"
 	"github.com/dustin/go-humanize"
@@ -18,7 +19,7 @@ func calculateVersionSizeChange() {
 	fmt.Println()
 	reportPackageInfo(&pkg.New, false, 0)
 	fmt.Println()
-	reportSizeDifference(pkg.Old.Size, pkg.New.Size, pkg.Old.DownloadsLastWeek)
+	reportSizeDifference(pkg.Old.Size, pkg.New.Size, pkg.Old.DownloadsLastWeek, pkg.New.TotalDownloads)
 }
 
 func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client) *packageVersionsInfo {
@@ -57,23 +58,35 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 		log.Fatal().Err(err).Msg("Failed to fetch package downloads")
 	}
 
-	b.Old.DownloadsLastWeek = downloads[oldPackageVersion]
+	b.Old.DownloadsLastWeek = downloads.ForVersion(oldPackageVersion)
+	b.Old.TotalDownloads = downloads.Total()
 
 	// TODO: Figure out a way to get the download count of the old version when the new version was published.
 	//       This would make the comparison more accurate, essentially answering "what would've happened
 	//       if <new version> got published instead of <old version>".
 	//       NPM's API can't do this, they're missing downloads for a version at a specific timestamp
 	//       https://github.com/npm/registry/blob/main/docs/download-counts.md#per-version-download-counts
-	b.New.DownloadsLastWeek = downloads[newPackageVersion]
+	b.New.DownloadsLastWeek = downloads.ForVersion(newPackageVersion)
+	b.New.TotalDownloads = downloads.Total()
 
 	b.Old.Size, b.Old.TmpDir, err = measurePackageSize(dockerC, b.Old.AsDependency())
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to measure old package size")
 	}
 
+	b.Old.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.Old.TmpDir, "package-lock.json"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to parse old package-lock.json")
+	}
+
 	b.New.Size, b.New.TmpDir, err = measurePackageSize(dockerC, b.New.AsDependency())
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to measure new package size")
+	}
+
+	b.New.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.New.TmpDir, "package-lock.json"))
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to parse new package-lock.json")
 	}
 
 	log.Info().Str("package", b.String()).Str("size", humanize.Bytes(b.Old.Size)).Msg("Package size")

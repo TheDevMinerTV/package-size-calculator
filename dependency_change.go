@@ -34,7 +34,8 @@ func replaceDeps() {
 		if err != nil {
 			l.Error().Err(err).Msg("Failed to fetch package downloads")
 		} else {
-			dep.DownloadsLastWeek = downloads[dep.Version]
+			dep.DownloadsLastWeek = downloads.ForVersion(dep.Version)
+			dep.TotalDownloads = downloads.Total()
 			l.Info().Msgf("Downloads last week: %v", dep.DownloadsLastWeek)
 		}
 
@@ -115,6 +116,7 @@ type dependencyPackageInfo struct {
 	Type              dependencyPackageInfoType
 	Size              uint64
 	DownloadsLastWeek uint64
+	TotalDownloads    uint64
 	Subdependencies   int
 }
 
@@ -216,7 +218,8 @@ func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packag
 		log.Fatal().Err(err).Msg("Failed to fetch package downloads")
 	}
 
-	b.DownloadsLastWeek = downloads[packageVersion]
+	b.DownloadsLastWeek = downloads.ForVersion(packageVersion)
+	b.TotalDownloads = downloads.Total()
 
 	// TODO: Parallelize
 	b.Size, b.TmpDir, err = measurePackageSize(dockerC, b.AsDependency())
@@ -239,6 +242,7 @@ type packageInfo struct {
 	Package           npm.PackageVersion
 	Lockfile          *npm.PackageLockJSON
 	DownloadsLastWeek uint64
+	TotalDownloads    uint64
 	Size              uint64
 	TmpDir            string
 }
