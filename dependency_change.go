@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	npm_version "github.com/aquasecurity/go-npm-version/pkg"
 	docker_client "github.com/docker/docker/client"
@@ -26,8 +27,10 @@ func replaceDeps() {
 	}
 
 	deps := combineDependencies(removedDependencies, addedDependencies)
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(deps))
 	for depName, dep := range deps {
-		// TODO: Parallelize
 		l := log.With().Str("package", depName).Logger()
 
 		downloads, err := npmClient.GetPackageDownloadsLastWeek(dep.Name)
@@ -39,21 +42,26 @@ func replaceDeps() {
 			l.Info().Msgf("Downloads last week: %v", dep.DownloadsLastWeek)
 		}
 
-		var tmpDir string
-		dep.Size, tmpDir, err = measurePackageSize(dockerC, dep.DependencyInfo)
-		if err != nil {
-			l.Fatal().Err(err).Msg("Failed to measure package size")
-		}
+		go func(dep *dependencyPackageInfo) {
+			defer wg.Done()
 
-		lock, err := npm.ParsePackageLockJSON(filepath.Join(tmpDir, "package-lock.json"))
-		if err != nil {
-			l.Error().Err(err).Msg("Failed to parse package-lock.json")
-		} else {
-			dep.Subdependencies = len(lock.Packages)
-		}
+			var tmpDir string
+			dep.Size, tmpDir, err = measurePackageSize(dockerC, dep.DependencyInfo)
+			if err != nil {
+				l.Fatal().Err(err).Msg("Failed to measure package size")
+			}
 
-		l.Info().Msgf("Package size: %s", humanize.Bytes(dep.Size))
+			lock, err := npm.ParsePackageLockJSON(filepath.Join(tmpDir, "package-lock.json"))
+			if err != nil {
+				l.Error().Err(err).Msg("Failed to parse package-lock.json")
+			} else {
+				dep.Subdependencies = len(lock.Packages)
+			}
+
+			l.Info().Msgf("Package size: %s", humanize.Bytes(dep.Size))
+		}(dep)
 	}
+	wg.Wait()
 
 	printReport(modifiedPackage, removedDependencies, addedDependencies, deps)
 }
@@ -221,7 +229,6 @@ func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packag
 	b.DownloadsLastWeek = downloads.ForVersion(packageVersion)
 	b.TotalDownloads = downloads.Total()
 
-	// TODO: Parallelize
 	b.Size, b.TmpDir, err = measurePackageSize(dockerC, b.AsDependency())
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to measure package size")
