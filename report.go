@@ -56,7 +56,11 @@ func printReport(
 
 	if len(removedDependencies) > 0 {
 		fmt.Println()
-		color.Red("Removed dependencies:")
+		if *fShortMode {
+			color.Red("Removed deps:")
+		} else {
+			color.Red("Removed dependencies:")
+		}
 
 		for _, p := range removedDependencies {
 			info := deps[p.String()]
@@ -64,6 +68,18 @@ func printReport(
 			pcSize := float64(info.Size) * 100 / float64(oldPackageSize)
 			traffic := info.DownloadsLastWeek * info.Size
 			pcTraffic := float64(downloadsLastWeek) * 100 / float64(info.DownloadsLastWeek)
+
+			if *fShortMode {
+				fmt.Printf("  %s %s: %s\n", color.RedString("-"), boldYellow.Sprint(p.String()), humanize.Bytes(info.Size))
+				fmt.Printf(
+					"    %s: %s %s\n",
+					bold.Sprint("DLs last week"),
+					fmtInt(int(info.DownloadsLastWeek)),
+					grayParens("%s", humanize.Bytes(traffic)),
+				)
+
+				continue
+			}
 
 			fmt.Printf("  %s %s: %s %s\n", color.RedString("-"), boldYellow.Sprint(p.String()), humanize.Bytes(info.Size), grayParens("%s%%", fmtPercent(pcSize)))
 			fmt.Printf("    %s: %s\n", bold.Sprint("Downloads last week"), fmtInt(int(info.DownloadsLastWeek)))
@@ -91,6 +107,13 @@ func printReport(
 
 			pcSize := 100 * float64(info.Size) / float64(packageSizeWithoutRemovedDeps)
 
+			if *fShortMode {
+				fmt.Printf("  %s %s: %s\n", color.GreenString("+"), boldYellow.Sprint(p.String()), humanize.Bytes(info.Size))
+				fmt.Printf("    %s: %s\n", bold.Sprint("DLs last week"), fmtInt(int(info.DownloadsLastWeek)))
+
+				continue
+			}
+
 			fmt.Printf(
 				"  %s %s: %s %s\n",
 				color.GreenString("+"),
@@ -117,6 +140,14 @@ func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool,
 	oldPackageSize := modifiedPackage.Size
 
 	modifiedPackageName := boldYellow.Sprint(packageJson.String())
+
+	if *fShortMode {
+		fmt.Printf("%s%s: %s\n", indent, modifiedPackageName, humanize.Bytes(oldPackageSize))
+		fmt.Printf("%s  %s: %s ago\n", indent, bold.Sprint("Released"), time_helpers.FormatDuration(time.Since(package_.ReleaseTime)))
+		fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("DLs last week"), fmtInt(int(downloadsLastWeek)))
+
+		return
+	}
 
 	fmt.Printf("%s%s: %s\n", indent, bold.Sprintf("Package info for \"%s\"", modifiedPackageName), humanize.Bytes(oldPackageSize))
 	fmt.Printf(
@@ -169,6 +200,27 @@ func reportSizeDifference(oldSize, newSize, downloads uint64) {
 		estTrafficChangeFmt = "%s wasted"
 	}
 	estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
+
+	if *fShortMode {
+		fmt.Printf(
+			"%s: %s %s %s %s\n",
+			bold.Sprint("Est. size"),
+			humanize.Bytes(oldSize),
+			arrow,
+			indicatorColor.Sprintf(humanize.Bytes(newSize)),
+			grayParens("%s", pcSizeFmt),
+		)
+		fmt.Printf(
+			"%s: %s %s %s %s\n",
+			bold.Sprint("Est. traffic"),
+			oldTrafficLastWeekFmt,
+			arrow,
+			indicatorColor.Sprint(estTrafficNextWeekFmt),
+			grayParens("%s", estTrafficChangeFmt),
+		)
+
+		return
+	}
 
 	fmt.Printf(
 		"%s: %s %s %s %s\n",
