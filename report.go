@@ -65,6 +65,7 @@ func printReport(
 		for _, p := range removedDependencies {
 			info := deps[p.String()]
 
+			pcDLs := 100 * float64(info.DownloadsLastWeek) / float64(info.TotalDownloads)
 			pcSize := float64(info.Size) * 100 / float64(oldPackageSize)
 			traffic := info.DownloadsLastWeek * info.Size
 			pcTraffic := float64(downloadsLastWeek) * 100 / float64(info.DownloadsLastWeek)
@@ -82,8 +83,19 @@ func printReport(
 				continue
 			}
 
-			fmt.Printf("  %s %s: %s %s\n", color.RedString("-"), boldYellow.Sprint(p.String()), humanize.Bytes(info.Size), grayParens("%s%%", fmtPercent(pcSize)))
-			fmt.Printf("    %s: %s\n", bold.Sprint("Downloads last week"), fmtInt(int(info.DownloadsLastWeek)))
+			fmt.Printf(
+				"  %s %s: %s %s\n",
+				color.RedString("-"),
+				boldYellow.Sprint(p.String()),
+				humanize.Bytes(info.Size),
+				grayParens("%s%%", fmtPercent(pcSize)),
+			)
+			fmt.Printf(
+				"    %s: %s %s\n",
+				bold.Sprint("Downloads last week"),
+				fmtInt(int(info.DownloadsLastWeek)),
+				grayParens("%s%%", fmtPercent(pcDLs)),
+			)
 			fmt.Printf(
 				"    %s: %s %s\n",
 				bold.Sprintf("Downloads last week from \"%s\"", modifiedPackageName),
@@ -107,6 +119,7 @@ func printReport(
 		for _, p := range addedDependencies {
 			info := deps[p.String()]
 
+			pcDLs := 100 * float64(info.DownloadsLastWeek) / float64(info.TotalDownloads)
 			pcSize := 100 * float64(info.Size) / float64(packageSizeWithoutRemovedDeps)
 			pcSubdeps := 100 * float64(info.Subdependencies) / float64(len(modifiedPackage.Lockfile.Packages))
 
@@ -124,7 +137,12 @@ func printReport(
 				humanize.Bytes(info.Size),
 				grayParens("%s%%", fmtPercent(pcSize)),
 			)
-			fmt.Printf("    %s: %s\n", bold.Sprint("Downloads last week"), fmtInt(int(info.DownloadsLastWeek)))
+			fmt.Printf(
+				"    %s: %s %s\n",
+				bold.Sprint("Downloads last week"),
+				fmtInt(int(info.DownloadsLastWeek)),
+				grayParens("%s%%", fmtPercent(pcDLs)),
+			)
 			fmt.Printf("    %s: %s\n", bold.Sprint("Estimated traffic last week"), humanize.Bytes(info.DownloadsLastWeek*info.Size))
 			fmt.Printf("    %s: %s %s\n", bold.Sprint("Subdependencies"), fmtInt(info.Subdependencies), grayParens("%s%%", fmtPercent(pcSubdeps)))
 		}
@@ -142,6 +160,7 @@ func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool,
 	packageJson := package_.JSON
 	downloadsLastWeek := modifiedPackage.DownloadsLastWeek
 	oldPackageSize := modifiedPackage.Size
+	pcDLs := 100 * float64(downloadsLastWeek) / float64(modifiedPackage.TotalDownloads)
 
 	modifiedPackageName := boldYellow.Sprint(packageJson.String())
 
@@ -161,7 +180,7 @@ func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool,
 		package_.ReleaseTime,
 		grayParens("%s ago", time_helpers.FormatDuration(time.Since(package_.ReleaseTime))),
 	)
-	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Downloads last week"), fmtInt(int(downloadsLastWeek)))
+	fmt.Printf("%s  %s: %s %s\n", indent, bold.Sprint("Downloads last week"), fmtInt(int(downloadsLastWeek)), grayParens("%s%%", fmtPercent(pcDLs)))
 	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Estimated traffic last week"), humanize.Bytes(downloadsLastWeek*oldPackageSize))
 	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Subdependencies"), fmtInt(len(modifiedPackage.Lockfile.Packages)))
 

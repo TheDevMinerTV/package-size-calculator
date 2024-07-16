@@ -5,7 +5,7 @@ import (
 	"net/url"
 )
 
-func (n *Client) GetPackageDownloadsLastWeek(packageName string) (map[string]uint64, error) {
+func (n *Client) GetPackageDownloadsLastWeek(packageName string) (Downloads, error) {
 	resp, err := n.c.Get(n.apiBase + "/versions/" + url.PathEscape(packageName) + "/last-week")
 	if err != nil {
 		return nil, err
@@ -20,5 +20,19 @@ func (n *Client) GetPackageDownloadsLastWeek(packageName string) (map[string]uin
 		return nil, err
 	}
 
-	return info.Downloads, nil
+	return Downloads(info.Downloads), nil
+}
+
+type Downloads map[string]uint64
+
+func (d Downloads) ForVersion(version string) uint64 {
+	return d[version]
+}
+
+func (d Downloads) Total() uint64 {
+	var total uint64
+	for _, v := range d {
+		total += v
+	}
+	return total
 }
