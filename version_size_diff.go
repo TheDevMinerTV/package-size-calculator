@@ -19,7 +19,7 @@ func calculateVersionSizeChange() {
 	fmt.Println()
 	reportPackageInfo(&pkg.New, false, 0)
 	fmt.Println()
-	reportSizeDifference(pkg.Old.Size, pkg.New.Size, pkg.Old.DownloadsLastWeek)
+	reportSizeDifference(pkg.Old.Size, pkg.New.Size, pkg.Old.DownloadsLastWeek, pkg.New.TotalDownloads)
 }
 
 func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client) *packageVersionsInfo {

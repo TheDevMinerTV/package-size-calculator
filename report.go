@@ -149,7 +149,7 @@ func printReport(
 	}
 
 	fmt.Println()
-	reportSizeDifference(oldPackageSize, newPackageSize, downloadsLastWeek)
+	reportSizeDifference(oldPackageSize, newPackageSize, downloadsLastWeek, modifiedPackage.TotalDownloads)
 }
 
 func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool, indentation int) {
@@ -197,7 +197,7 @@ func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool,
 	}
 }
 
-func reportSizeDifference(oldSize, newSize, downloads uint64) {
+func reportSizeDifference(oldSize, newSize, downloads, totalDownloads uint64) {
 	indicatorColor := boldGreen
 	if newSize > oldSize {
 		indicatorColor = boldRed
@@ -213,16 +213,25 @@ func reportSizeDifference(oldSize, newSize, downloads uint64) {
 	estTrafficNextWeek := big.NewInt(int64(downloads * newSize))
 	estTrafficNextWeekFmt := humanize.BigBytes(estTrafficNextWeek)
 
+	scaledOldTrafficLastWeek := big.NewInt(int64(totalDownloads * oldSize))
+	scaledOldTrafficLastWeekFmt := humanize.BigBytes(scaledOldTrafficLastWeek)
+	scaledEstTrafficNextWeek := big.NewInt(int64(totalDownloads * newSize))
+	scaledEstTrafficNextWeekFmt := humanize.BigBytes(scaledEstTrafficNextWeek)
+
 	estTrafficChange := big.NewInt(0).Sub(oldTrafficLastWeek, estTrafficNextWeek)
 	estTrafficChangeFmt := ""
+	scaledEstTrafficChange := big.NewInt(0).Sub(scaledOldTrafficLastWeek, scaledEstTrafficNextWeek)
+
 	if estTrafficChange.Cmp(big.NewInt(0)) == 0 {
 		estTrafficChangeFmt = "No change"
 	} else if estTrafficChange.Cmp(big.NewInt(0)) > 0 {
 		estTrafficChangeFmt = "%s saved"
 	} else {
 		estTrafficChange.Mul(estTrafficChange, big.NewInt(-1))
+		scaledEstTrafficChange.Mul(scaledEstTrafficChange, big.NewInt(-1))
 		estTrafficChangeFmt = "%s wasted"
 	}
+	scaledEstTrafficChangeFmt := indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(scaledEstTrafficChange))
 	estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
 
 	if *fShortMode {
@@ -261,6 +270,14 @@ func reportSizeDifference(oldSize, newSize, downloads uint64) {
 		arrow,
 		indicatorColor.Sprint(estTrafficNextWeekFmt),
 		grayParens("%s", estTrafficChangeFmt),
+	)
+	fmt.Printf(
+		"%s: %s %s %s %s\n",
+		bold.Sprint("Estimated traffic over a week @ 100% downloads"),
+		scaledOldTrafficLastWeekFmt,
+		arrow,
+		indicatorColor.Sprint(scaledEstTrafficNextWeekFmt),
+		grayParens("%s", scaledEstTrafficChangeFmt),
 	)
 }
 
