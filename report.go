@@ -33,17 +33,21 @@ func printReport(
 	packageJson := package_.JSON
 	downloadsLastWeek := modifiedPackage.DownloadsLastWeek
 	oldPackageSize := modifiedPackage.Size
+	oldSubdependencies := len(modifiedPackage.Lockfile.Packages)
 
 	modifiedPackageName := boldYellow.Sprint(packageJson.String())
 
 	newPackageSize := oldPackageSize
+	newSubdependencies := oldSubdependencies
 	packageSizeWithoutRemovedDeps := oldPackageSize
 	for _, p := range deps {
 		if p.Type == DependencyRemoved {
 			newPackageSize -= p.Size
+			newSubdependencies -= p.Subdependencies
 			packageSizeWithoutRemovedDeps -= p.Size
 		} else {
 			newPackageSize += p.Size
+			newSubdependencies += p.Subdependencies
 		}
 	}
 
@@ -121,7 +125,7 @@ func printReport(
 
 			pcDLs := 100 * float64(info.DownloadsLastWeek) / float64(info.TotalDownloads)
 			pcSize := 100 * float64(info.Size) / float64(packageSizeWithoutRemovedDeps)
-			pcSubdeps := 100 * float64(info.Subdependencies) / float64(len(modifiedPackage.Lockfile.Packages))
+			pcSubdeps := 100 * float64(info.Subdependencies) / float64(oldSubdependencies)
 
 			if *fShortMode {
 				fmt.Printf("  %s %s: %s\n", color.GreenString("+"), boldYellow.Sprint(p.String()), humanize.Bytes(info.Size))
@@ -150,6 +154,7 @@ func printReport(
 
 	fmt.Println()
 	reportSizeDifference(oldPackageSize, newPackageSize, downloadsLastWeek, modifiedPackage.TotalDownloads)
+	reportSubdependencies(oldSubdependencies, newSubdependencies)
 }
 
 func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool, indentation int) {
@@ -278,6 +283,25 @@ func reportSizeDifference(oldSize, newSize, downloads, totalDownloads uint64) {
 		arrow,
 		indicatorColor.Sprint(scaledEstTrafficNextWeekFmt),
 		grayParens("%s", scaledEstTrafficChangeFmt),
+	)
+}
+
+func reportSubdependencies(oldSubdependencies, newSubdependencies int) {
+	var indicatorColor *color.Color
+	if oldSubdependencies > newSubdependencies {
+		indicatorColor = boldGreen
+	} else {
+		indicatorColor = boldRed
+	}
+	subdepsFmt := indicatorColor.Sprint(fmtInt(newSubdependencies))
+
+	fmt.Printf(
+		"%s: %s %s %s %s\n",
+		bold.Sprint("Subdependencies"),
+		fmtInt(oldSubdependencies),
+		arrow,
+		subdepsFmt,
+		grayParens("%s", indicatorColor.Sprint(fmtInt(newSubdependencies-oldSubdependencies))),
 	)
 }
 
