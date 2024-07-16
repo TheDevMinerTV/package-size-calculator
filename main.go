@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"os"
 	"package_size_calculator/internal/build"
 	"package_size_calculator/pkg/npm"
@@ -19,6 +20,8 @@ const (
 var (
 	npmClient *npm.Client
 	dockerC   *docker_client.Client
+
+	fShortMode = flag.Bool("short", false, "Print a shorter version of the package report, ideal for posts to Twitter")
 )
 
 func main() {
@@ -26,6 +29,8 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	// zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+
+	flag.Parse()
 
 	log.Info().Msgf("Package size calculator %s (%s, built on %s)", build.Version, build.Commit, build.BuildTime)
 

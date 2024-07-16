@@ -12,6 +12,11 @@ You can find the built binaries [here](https://github.com/TheDevMinerTV/package-
 package-size-calculator
 ```
 
+The following additional flags are available:
+```
+--short    : Print a shorter version of the package report, ideal for posts to Twitter
+```
+
 ## License
 
 Package size calculator is licensed under the MIT License. See [LICENSE](LICENSE) for the full license text.
