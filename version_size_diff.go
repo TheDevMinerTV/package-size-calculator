@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"package_size_calculator/pkg/npm"
 	"path/filepath"
+	"sync"
 
 	docker_client "github.com/docker/docker/client"
 	"github.com/dustin/go-humanize"
@@ -69,25 +70,38 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 	b.New.DownloadsLastWeek = downloads.ForVersion(newPackageVersion)
 	b.New.TotalDownloads = downloads.Total()
 
-	b.Old.Size, b.Old.TmpDir, err = measurePackageSize(dockerC, b.Old.AsDependency())
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to measure old package size")
-	}
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
-	b.Old.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.Old.TmpDir, "package-lock.json"))
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to parse old package-lock.json")
-	}
+	go func() {
+		defer wg.Done()
 
-	b.New.Size, b.New.TmpDir, err = measurePackageSize(dockerC, b.New.AsDependency())
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to measure new package size")
-	}
+		b.Old.Size, b.Old.TmpDir, err = measurePackageSize(dockerC, b.Old.AsDependency())
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to measure old package size")
+		}
 
-	b.New.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.New.TmpDir, "package-lock.json"))
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to parse new package-lock.json")
-	}
+		b.Old.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.Old.TmpDir, "package-lock.json"))
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to parse old package-lock.json")
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		b.New.Size, b.New.TmpDir, err = measurePackageSize(dockerC, b.New.AsDependency())
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to measure new package size")
+		}
+
+		b.New.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.New.TmpDir, "package-lock.json"))
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to parse new package-lock.json")
+		}
+	}()
+
+	wg.Wait()
 
 	log.Info().Str("package", b.String()).Str("size", humanize.Bytes(b.Old.Size)).Msg("Package size")
 

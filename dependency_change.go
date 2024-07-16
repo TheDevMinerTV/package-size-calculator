@@ -221,7 +221,6 @@ func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packag
 	b.DownloadsLastWeek = downloads.ForVersion(packageVersion)
 	b.TotalDownloads = downloads.Total()
 
-	// TODO: Parallelize
 	b.Size, b.TmpDir, err = measurePackageSize(dockerC, b.AsDependency())
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to measure package size")
