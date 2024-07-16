@@ -68,6 +68,7 @@ func printReport(
 			pcSize := float64(info.Size) * 100 / float64(oldPackageSize)
 			traffic := info.DownloadsLastWeek * info.Size
 			pcTraffic := float64(downloadsLastWeek) * 100 / float64(info.DownloadsLastWeek)
+			pcSubdeps := 100 * float64(info.Subdependencies) / float64(len(modifiedPackage.Lockfile.Packages))
 
 			if *fShortMode {
 				fmt.Printf("  %s %s: %s\n", color.RedString("-"), boldYellow.Sprint(p.String()), humanize.Bytes(info.Size))
@@ -95,6 +96,7 @@ func printReport(
 				humanize.Bytes(downloadsLastWeek*info.Size),
 				grayParens("%s%%", fmtPercent(pcTraffic)),
 			)
+			fmt.Printf("    %s: %s %s\n", bold.Sprint("Subdependencies"), fmtInt(info.Subdependencies), grayParens("%s%%", fmtPercent(pcSubdeps)))
 		}
 	}
 
@@ -106,6 +108,7 @@ func printReport(
 			info := deps[p.String()]
 
 			pcSize := 100 * float64(info.Size) / float64(packageSizeWithoutRemovedDeps)
+			pcSubdeps := 100 * float64(info.Subdependencies) / float64(len(modifiedPackage.Lockfile.Packages))
 
 			if *fShortMode {
 				fmt.Printf("  %s %s: %s\n", color.GreenString("+"), boldYellow.Sprint(p.String()), humanize.Bytes(info.Size))
@@ -123,6 +126,7 @@ func printReport(
 			)
 			fmt.Printf("    %s: %s\n", bold.Sprint("Downloads last week"), fmtInt(int(info.DownloadsLastWeek)))
 			fmt.Printf("    %s: %s\n", bold.Sprint("Estimated traffic last week"), humanize.Bytes(info.DownloadsLastWeek*info.Size))
+			fmt.Printf("    %s: %s %s\n", bold.Sprint("Subdependencies"), fmtInt(info.Subdependencies), grayParens("%s%%", fmtPercent(pcSubdeps)))
 		}
 	}
 
@@ -159,6 +163,7 @@ func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool,
 	)
 	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Downloads last week"), fmtInt(int(downloadsLastWeek)))
 	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Estimated traffic last week"), humanize.Bytes(downloadsLastWeek*oldPackageSize))
+	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Subdependencies"), fmtInt(len(modifiedPackage.Lockfile.Packages)))
 
 	if showLatestVersionHint {
 		latestVersion := packageInfo.LatestVersion

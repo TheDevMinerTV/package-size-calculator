@@ -38,9 +38,17 @@ func replaceDeps() {
 			l.Info().Msgf("Downloads last week: %v", dep.DownloadsLastWeek)
 		}
 
-		dep.Size, _, err = measurePackageSize(dockerC, dep.DependencyInfo)
+		var tmpDir string
+		dep.Size, tmpDir, err = measurePackageSize(dockerC, dep.DependencyInfo)
 		if err != nil {
 			l.Fatal().Err(err).Msg("Failed to measure package size")
+		}
+
+		lock, err := npm.ParsePackageLockJSON(filepath.Join(tmpDir, "package-lock.json"))
+		if err != nil {
+			l.Error().Err(err).Msg("Failed to parse package-lock.json")
+		} else {
+			dep.Subdependencies = len(lock.Packages)
 		}
 
 		l.Info().Msgf("Package size: %s", humanize.Bytes(dep.Size))
@@ -104,9 +112,10 @@ const (
 
 type dependencyPackageInfo struct {
 	npm.DependencyInfo
+	Type              dependencyPackageInfoType
 	Size              uint64
 	DownloadsLastWeek uint64
-	Type              dependencyPackageInfoType
+	Subdependencies   int
 }
 
 func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependencies []*npm.PackageJSON) map[string]*dependencyPackageInfo {
@@ -118,6 +127,7 @@ func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependen
 			Type:              DependencyRemoved,
 			Size:              0,
 			DownloadsLastWeek: 0,
+			Subdependencies:   0,
 		}
 	}
 
@@ -127,6 +137,7 @@ func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependen
 			Type:              DependencyAdded,
 			Size:              0,
 			DownloadsLastWeek: 0,
+			Subdependencies:   0,
 		}
 	}
 
