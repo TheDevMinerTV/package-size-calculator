@@ -46,6 +46,9 @@ func (p *LockedPackages) UnmarshalJSON(data []byte) error {
 
 	*p = make(LockedPackages, len(packages))
 
+	// Remove the empty key, which is used to store the root package
+	delete(packages, "")
+
 	for name, pkg := range packages {
 		name := strings.TrimPrefix(name, "node_modules/")
 
