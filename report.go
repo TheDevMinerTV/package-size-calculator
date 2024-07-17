@@ -225,19 +225,29 @@ func reportSizeDifference(oldSize, newSize, downloads, totalDownloads uint64) {
 
 	estTrafficChange := big.NewInt(0).Sub(oldTrafficLastWeek, estTrafficNextWeek)
 	estTrafficChangeFmt := ""
-	scaledEstTrafficChange := big.NewInt(0).Sub(scaledOldTrafficLastWeek, scaledEstTrafficNextWeek)
-
 	if estTrafficChange.Cmp(big.NewInt(0)) == 0 {
-		estTrafficChangeFmt = "No change"
+		estTrafficChangeFmt = indicatorColor.Sprintf("No change")
 	} else if estTrafficChange.Cmp(big.NewInt(0)) > 0 {
 		estTrafficChangeFmt = "%s saved"
+		estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
 	} else {
 		estTrafficChange.Mul(estTrafficChange, big.NewInt(-1))
-		scaledEstTrafficChange.Mul(scaledEstTrafficChange, big.NewInt(-1))
 		estTrafficChangeFmt = "%s wasted"
+		estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
 	}
-	scaledEstTrafficChangeFmt := indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(scaledEstTrafficChange))
-	estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
+
+	scaledEstTrafficChange := big.NewInt(0).Sub(scaledOldTrafficLastWeek, scaledEstTrafficNextWeek)
+	scaledEstTrafficChangeFmt := ""
+	if scaledEstTrafficChange.Cmp(big.NewInt(0)) == 0 {
+		scaledEstTrafficChangeFmt = indicatorColor.Sprintf("No change")
+	} else if scaledEstTrafficChange.Cmp(big.NewInt(0)) > 0 {
+		scaledEstTrafficChangeFmt = "%s saved"
+		scaledEstTrafficChangeFmt = indicatorColor.Sprintf(scaledEstTrafficChangeFmt, humanize.BigBytes(scaledEstTrafficChange))
+	} else {
+		scaledEstTrafficChange.Mul(scaledEstTrafficChange, big.NewInt(-1))
+		scaledEstTrafficChangeFmt = "%s wasted"
+		scaledEstTrafficChangeFmt = indicatorColor.Sprintf(scaledEstTrafficChangeFmt, humanize.BigBytes(scaledEstTrafficChange))
+	}
 
 	if *fShortMode {
 		fmt.Printf(
