@@ -21,7 +21,7 @@ func calculateVersionSizeChange() {
 	reportPackageInfo(&pkg.New, false, 0)
 	fmt.Println()
 	reportSizeDifference(pkg.Old.Size, pkg.New.Size, pkg.Old.DownloadsLastWeek, pkg.New.TotalDownloads)
-	reportSubdependencies(len(pkg.Old.Lockfile.Packages), len(pkg.New.Lockfile.Packages))
+	reportSubdependencies(len(pkg.Old.Lockfile.Packages)-1, len(pkg.New.Lockfile.Packages))
 }
 
 func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client) *packageVersionsInfo {
