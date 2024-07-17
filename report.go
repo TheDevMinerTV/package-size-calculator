@@ -288,10 +288,10 @@ func reportSizeDifference(oldSize uint64, newSize uint64, downloads *uint64, tot
 }
 
 func reportSubdependencies(oldSubdependencies, newSubdependencies int64) {
-	var indicatorColor *color.Color
+	indicatorColor := boldGray
 	if oldSubdependencies > newSubdependencies {
 		indicatorColor = boldGreen
-	} else {
+	} else if oldSubdependencies < newSubdependencies {
 		indicatorColor = boldRed
 	}
 	subdepsFmt := indicatorColor.Sprint(fmtInt(newSubdependencies))
