@@ -20,8 +20,8 @@ func calculateVersionSizeChange() {
 	fmt.Println()
 	reportPackageInfo(&pkg.New, false, 0)
 	fmt.Println()
-	reportSizeDifference(pkg.Old.Size, pkg.New.Size, pkg.Old.DownloadsLastWeek, pkg.New.TotalDownloads)
-	reportSubdependencies(len(pkg.Old.Lockfile.Packages)-1, len(pkg.New.Lockfile.Packages))
+	reportSizeDifference(pkg.Old.Stats.Size, pkg.New.Stats.Size, pkg.Old.Stats.DownloadsLastWeek, pkg.New.Stats.TotalDownloads)
+	reportSubdependencies(int64(len(pkg.Old.Lockfile.Packages)), int64(len(pkg.New.Lockfile.Packages)))
 }
 
 func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client) *packageVersionsInfo {
@@ -60,16 +60,38 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 		log.Fatal().Err(err).Msg("Failed to fetch package downloads")
 	}
 
-	b.Old.DownloadsLastWeek = downloads.ForVersion(oldPackageVersion)
-	b.Old.TotalDownloads = downloads.Total()
+	oldStats := stats{
+		TotalDownloads: downloads.Total(),
+	}
+	newStats := stats{
+		TotalDownloads: downloads.Total(),
+	}
+
+	oldDownloadsLastWeek, ok := downloads.ForVersion(oldPackageVersion)
+	if ok {
+		oldStats.DownloadsLastWeek = &oldDownloadsLastWeek
+		log.Info().
+			Str("package", b.String()).
+			Str("version", oldPackageVersion).
+			Str("size", humanize.Bytes(b.Old.Stats.Size)).
+			Msg("Package size")
+	}
 
 	// TODO: Figure out a way to get the download count of the old version when the new version was published.
 	//       This would make the comparison more accurate, essentially answering "what would've happened
 	//       if <new version> got published instead of <old version>".
 	//       NPM's API can't do this, they're missing downloads for a version at a specific timestamp
 	//       https://github.com/npm/registry/blob/main/docs/download-counts.md#per-version-download-counts
-	b.New.DownloadsLastWeek = downloads.ForVersion(newPackageVersion)
-	b.New.TotalDownloads = downloads.Total()
+
+	newDownloadsLastWeek, ok := downloads.ForVersion(newPackageVersion)
+	if ok {
+		newStats.DownloadsLastWeek = &newDownloadsLastWeek
+		log.Info().
+			Str("package", b.String()).
+			Str("version", newPackageVersion).
+			Str("size", humanize.Bytes(b.New.Stats.Size)).
+			Msg("Package size")
+	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -77,7 +99,7 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 	go func() {
 		defer wg.Done()
 
-		b.Old.Size, b.Old.TmpDir, err = measurePackageSize(dockerC, b.Old.AsDependency())
+		oldStats.Size, b.Old.TmpDir, err = measurePackageSize(dockerC, b.Old.AsDependency())
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to measure old package size")
 		}
@@ -86,12 +108,14 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to parse old package-lock.json")
 		}
+
+		oldStats.Subdependencies = int64(len(b.Old.Lockfile.Packages))
 	}()
 
 	go func() {
 		defer wg.Done()
 
-		b.New.Size, b.New.TmpDir, err = measurePackageSize(dockerC, b.New.AsDependency())
+		newStats.Size, b.New.TmpDir, err = measurePackageSize(dockerC, b.New.AsDependency())
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to measure new package size")
 		}
@@ -100,11 +124,14 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to parse new package-lock.json")
 		}
+
+		newStats.Subdependencies = int64(len(b.New.Lockfile.Packages))
 	}()
 
 	wg.Wait()
 
-	log.Info().Str("package", b.String()).Str("size", humanize.Bytes(b.Old.Size)).Msg("Package size")
+	b.Old.Stats = oldStats.Calculate()
+	b.New.Stats = newStats.Calculate()
 
 	return b
 }

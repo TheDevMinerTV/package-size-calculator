@@ -25,8 +25,9 @@ func (n *Client) GetPackageDownloadsLastWeek(packageName string) (Downloads, err
 
 type Downloads map[string]uint64
 
-func (d Downloads) ForVersion(version string) uint64 {
-	return d[version]
+func (d Downloads) ForVersion(version string) (uint64, bool) {
+	count, ok := d[version]
+	return count, ok
 }
 
 func (d Downloads) Total() uint64 {

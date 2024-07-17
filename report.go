@@ -31,9 +31,9 @@ func printReport(
 ) {
 	package_ := modifiedPackage.Package
 	packageJson := package_.JSON
-	downloadsLastWeek := modifiedPackage.DownloadsLastWeek
-	oldPackageSize := modifiedPackage.Size
-	oldSubdependencies := len(modifiedPackage.Lockfile.Packages)
+	downloadsLastWeek := modifiedPackage.Stats.DownloadsLastWeek
+	oldPackageSize := modifiedPackage.Stats.Size
+	oldSubdependencies := int64(len(modifiedPackage.Lockfile.Packages))
 
 	modifiedPackageName := boldYellow.Sprint(packageJson.String())
 
@@ -69,19 +69,24 @@ func printReport(
 		for _, p := range removedDependencies {
 			info := deps[p.String()]
 
-			pcDLs := 100 * float64(info.DownloadsLastWeek) / float64(info.TotalDownloads)
+			pcDLs := info.FormattedPercentDownloadsOfVersion()
 			pcSize := float64(info.Size) * 100 / float64(oldPackageSize)
-			traffic := info.DownloadsLastWeek * info.Size
-			pcTraffic := float64(downloadsLastWeek) * 100 / float64(info.DownloadsLastWeek)
-			pcSubdeps := 100 * float64(info.Subdependencies) / float64(len(modifiedPackage.Lockfile.Packages))
+			pcTrafficOfPackageFmt := info.FormattedPercentOfPackageTraffic(oldPackageSize)
+			pcSubdeps := info.PercentOfPackageSubdependencies(oldSubdependencies)
+
+			upperDLsFmt := modifiedPackage.Stats.FormattedDownloadsLastWeek()
+			upperDLsTrafficFmt := modifiedPackage.Stats.FormattedTrafficLastWeek()
+
+			dlsFmt := info.FormattedDownloadsLastWeek()
+			trafficFmt := info.FormattedTrafficLastWeek()
 
 			if *fShortMode {
 				fmt.Printf("  %s %s: %s\n", color.RedString("-"), boldYellow.Sprint(p.String()), humanize.Bytes(info.Size))
 				fmt.Printf(
 					"    %s: %s %s\n",
 					bold.Sprint("DLs last week"),
-					fmtInt(int(info.DownloadsLastWeek)),
-					grayParens("%s", humanize.Bytes(traffic)),
+					dlsFmt,
+					grayParens("%s", trafficFmt),
 				)
 
 				continue
@@ -97,22 +102,27 @@ func printReport(
 			fmt.Printf(
 				"    %s: %s %s\n",
 				bold.Sprint("Downloads last week"),
-				fmtInt(int(info.DownloadsLastWeek)),
-				grayParens("%s%%", fmtPercent(pcDLs)),
+				dlsFmt,
+				grayParens("%s%% from %s", pcDLs, boldYellow.Sprint(info.Version)),
 			)
 			fmt.Printf(
 				"    %s: %s %s\n",
 				bold.Sprintf("Downloads last week from \"%s\"", modifiedPackageName),
-				fmtInt(int(downloadsLastWeek)),
-				grayParens("%s%%", fmtPercent(pcTraffic)),
+				upperDLsFmt,
+				grayParens("%s%%", pcTrafficOfPackageFmt),
 			)
-			fmt.Printf("    %s: %s\n", bold.Sprint("Estimated traffic last week"), humanize.Bytes(traffic))
+			fmt.Printf("    %s: %s\n", bold.Sprint("Traffic last week"), trafficFmt)
 			fmt.Printf("    %s: %s %s\n",
-				bold.Sprintf("Estimated traffic from \"%s\"", modifiedPackageName),
-				humanize.Bytes(downloadsLastWeek*info.Size),
-				grayParens("%s%%", fmtPercent(pcTraffic)),
+				bold.Sprintf("Traffic from \"%s\"", modifiedPackageName),
+				upperDLsTrafficFmt,
+				grayParens("%s%%", pcTrafficOfPackageFmt),
 			)
-			fmt.Printf("    %s: %s %s\n", bold.Sprint("Subdependencies"), fmtInt(info.Subdependencies), grayParens("%s%%", fmtPercent(pcSubdeps)))
+			fmt.Printf(
+				"    %s: %s %s\n",
+				bold.Sprint("Subdependencies"),
+				fmtInt(info.Subdependencies),
+				grayParens("%s%%", fmtPercent(pcSubdeps)),
+			)
 		}
 	}
 
@@ -123,13 +133,16 @@ func printReport(
 		for _, p := range addedDependencies {
 			info := deps[p.String()]
 
-			pcDLs := 100 * float64(info.DownloadsLastWeek) / float64(info.TotalDownloads)
-			pcSize := 100 * float64(info.Size) / float64(packageSizeWithoutRemovedDeps)
-			pcSubdeps := 100 * float64(info.Subdependencies) / float64(oldSubdependencies)
+			pcDLs := info.FormattedPercentDownloadsOfVersion()
+			pcSize := info.PercentOfPackageSize(packageSizeWithoutRemovedDeps)
+			pcSubdeps := info.PercentOfPackageSubdependencies(oldSubdependencies)
+
+			dlsFmt := info.FormattedDownloadsLastWeek()
+			trafficFmt := info.FormattedTrafficLastWeek()
 
 			if *fShortMode {
 				fmt.Printf("  %s %s: %s\n", color.GreenString("+"), boldYellow.Sprint(p.String()), humanize.Bytes(info.Size))
-				fmt.Printf("    %s: %s\n", bold.Sprint("DLs last week"), fmtInt(int(info.DownloadsLastWeek)))
+				fmt.Printf("    %s: %s\n", bold.Sprint("DLs last week"), dlsFmt)
 
 				continue
 			}
@@ -144,16 +157,21 @@ func printReport(
 			fmt.Printf(
 				"    %s: %s %s\n",
 				bold.Sprint("Downloads last week"),
-				fmtInt(int(info.DownloadsLastWeek)),
-				grayParens("%s%%", fmtPercent(pcDLs)),
+				dlsFmt,
+				grayParens("%s%% from %s", pcDLs, boldYellow.Sprint(info.Version)),
 			)
-			fmt.Printf("    %s: %s\n", bold.Sprint("Estimated traffic last week"), humanize.Bytes(info.DownloadsLastWeek*info.Size))
-			fmt.Printf("    %s: %s %s\n", bold.Sprint("Subdependencies"), fmtInt(info.Subdependencies), grayParens("%s%%", fmtPercent(pcSubdeps)))
+			fmt.Printf("    %s: %s\n", bold.Sprint("Estimated traffic last week"), trafficFmt)
+			fmt.Printf(
+				"    %s: %s %s\n",
+				bold.Sprint("Subdependencies"),
+				fmtInt(info.Subdependencies),
+				grayParens("%s%%", fmtPercent(pcSubdeps)),
+			)
 		}
 	}
 
 	fmt.Println()
-	reportSizeDifference(oldPackageSize, newPackageSize, downloadsLastWeek, modifiedPackage.TotalDownloads)
+	reportSizeDifference(oldPackageSize, newPackageSize, downloadsLastWeek, modifiedPackage.Stats.TotalDownloads)
 	reportSubdependencies(oldSubdependencies, newSubdependencies)
 }
 
@@ -163,16 +181,15 @@ func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool,
 	packageInfo := modifiedPackage.Info
 	package_ := modifiedPackage.Package
 	packageJson := package_.JSON
-	downloadsLastWeek := modifiedPackage.DownloadsLastWeek
-	oldPackageSize := modifiedPackage.Size
-	pcDLs := 100 * float64(downloadsLastWeek) / float64(modifiedPackage.TotalDownloads)
+	oldPackageSize := modifiedPackage.Stats.Size
+	dlsFmt := modifiedPackage.Stats.FormattedPercentDownloadsOfVersion()
 
 	modifiedPackageName := boldYellow.Sprint(packageJson.String())
 
 	if *fShortMode {
 		fmt.Printf("%s%s: %s\n", indent, modifiedPackageName, humanize.Bytes(oldPackageSize))
 		fmt.Printf("%s  %s: %s ago\n", indent, bold.Sprint("Released"), time_helpers.FormatDuration(time.Since(package_.ReleaseTime)))
-		fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("DLs last week"), fmtInt(int(downloadsLastWeek)))
+		fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("DLs last week"), dlsFmt)
 
 		return
 	}
@@ -185,9 +202,16 @@ func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool,
 		package_.ReleaseTime,
 		grayParens("%s ago", time_helpers.FormatDuration(time.Since(package_.ReleaseTime))),
 	)
-	fmt.Printf("%s  %s: %s %s\n", indent, bold.Sprint("Downloads last week"), fmtInt(int(downloadsLastWeek)), grayParens("%s%%", fmtPercent(pcDLs)))
-	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Estimated traffic last week"), humanize.Bytes(downloadsLastWeek*oldPackageSize))
-	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Subdependencies"), fmtInt(len(modifiedPackage.Lockfile.Packages)))
+
+	fmt.Printf(
+		"%s  %s: %s %s\n",
+		indent,
+		bold.Sprint("Downloads last week"),
+		modifiedPackage.Stats.FormattedDownloadsLastWeek(),
+		grayParens("%s%%", dlsFmt),
+	)
+	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Estimated traffic last week"), modifiedPackage.Stats.FormattedTrafficLastWeek())
+	fmt.Printf("%s  %s: %s\n", indent, bold.Sprint("Subdependencies"), fmtInt(modifiedPackage.Stats.Subdependencies))
 
 	if showLatestVersionHint {
 		latestVersion := packageInfo.LatestVersion
@@ -202,7 +226,7 @@ func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool,
 	}
 }
 
-func reportSizeDifference(oldSize, newSize, downloads, totalDownloads uint64) {
+func reportSizeDifference(oldSize uint64, newSize uint64, downloads *uint64, totalDownloads uint64) {
 	indicatorColor := boldGreen
 	if newSize > oldSize {
 		indicatorColor = boldRed
@@ -213,41 +237,8 @@ func reportSizeDifference(oldSize, newSize, downloads, totalDownloads uint64) {
 	pcSize := 100 * float64(newSize) / float64(oldSize)
 	pcSizeFmt := indicatorColor.Sprintf("%s%%", fmtPercent(pcSize))
 
-	oldTrafficLastWeek := big.NewInt(int64(downloads * oldSize))
-	oldTrafficLastWeekFmt := humanize.BigBytes(oldTrafficLastWeek)
-	estTrafficNextWeek := big.NewInt(int64(downloads * newSize))
-	estTrafficNextWeekFmt := humanize.BigBytes(estTrafficNextWeek)
-
-	scaledOldTrafficLastWeek := big.NewInt(int64(totalDownloads * oldSize))
-	scaledOldTrafficLastWeekFmt := humanize.BigBytes(scaledOldTrafficLastWeek)
-	scaledEstTrafficNextWeek := big.NewInt(int64(totalDownloads * newSize))
-	scaledEstTrafficNextWeekFmt := humanize.BigBytes(scaledEstTrafficNextWeek)
-
-	estTrafficChange := big.NewInt(0).Sub(oldTrafficLastWeek, estTrafficNextWeek)
-	estTrafficChangeFmt := ""
-	if estTrafficChange.Cmp(big.NewInt(0)) == 0 {
-		estTrafficChangeFmt = indicatorColor.Sprintf("No change")
-	} else if estTrafficChange.Cmp(big.NewInt(0)) > 0 {
-		estTrafficChangeFmt = "%s saved"
-		estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
-	} else {
-		estTrafficChange.Mul(estTrafficChange, big.NewInt(-1))
-		estTrafficChangeFmt = "%s wasted"
-		estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
-	}
-
-	scaledEstTrafficChange := big.NewInt(0).Sub(scaledOldTrafficLastWeek, scaledEstTrafficNextWeek)
-	scaledEstTrafficChangeFmt := ""
-	if scaledEstTrafficChange.Cmp(big.NewInt(0)) == 0 {
-		scaledEstTrafficChangeFmt = indicatorColor.Sprintf("No change")
-	} else if scaledEstTrafficChange.Cmp(big.NewInt(0)) > 0 {
-		scaledEstTrafficChangeFmt = "%s saved"
-		scaledEstTrafficChangeFmt = indicatorColor.Sprintf(scaledEstTrafficChangeFmt, humanize.BigBytes(scaledEstTrafficChange))
-	} else {
-		scaledEstTrafficChange.Mul(scaledEstTrafficChange, big.NewInt(-1))
-		scaledEstTrafficChangeFmt = "%s wasted"
-		scaledEstTrafficChangeFmt = indicatorColor.Sprintf(scaledEstTrafficChangeFmt, humanize.BigBytes(scaledEstTrafficChange))
-	}
+	oldTrafficLastWeekFmt, estNewTrafficFmt, estTrafficChangeFmt := formattedTraffic(downloads, oldSize, newSize)
+	scaledOldTrafficLastWeekFmt, scaledEstTrafficNextWeekFmt, scaledEstTrafficChangeFmt := formattedTraffic(&totalDownloads, oldSize, newSize)
 
 	if *fShortMode {
 		fmt.Printf(
@@ -263,7 +254,7 @@ func reportSizeDifference(oldSize, newSize, downloads, totalDownloads uint64) {
 			bold.Sprint("Est. traffic"),
 			oldTrafficLastWeekFmt,
 			arrow,
-			indicatorColor.Sprint(estTrafficNextWeekFmt),
+			indicatorColor.Sprint(estNewTrafficFmt),
 			grayParens("%s", estTrafficChangeFmt),
 		)
 
@@ -283,7 +274,7 @@ func reportSizeDifference(oldSize, newSize, downloads, totalDownloads uint64) {
 		bold.Sprint("Estimated traffic over a week"),
 		oldTrafficLastWeekFmt,
 		arrow,
-		indicatorColor.Sprint(estTrafficNextWeekFmt),
+		estNewTrafficFmt,
 		grayParens("%s", estTrafficChangeFmt),
 	)
 	fmt.Printf(
@@ -296,7 +287,7 @@ func reportSizeDifference(oldSize, newSize, downloads, totalDownloads uint64) {
 	)
 }
 
-func reportSubdependencies(oldSubdependencies, newSubdependencies int) {
+func reportSubdependencies(oldSubdependencies, newSubdependencies int64) {
 	var indicatorColor *color.Color
 	if oldSubdependencies > newSubdependencies {
 		indicatorColor = boldGreen
@@ -319,13 +310,47 @@ func grayParens(s string, args ...any) string {
 	a := gray.Sprint("(")
 	b := gray.Sprint(")")
 
-	return fmt.Sprintf("%s%s%s", a, fmt.Sprintf(s, args...), b)
+	return fmt.Sprintf("%s%s%s", a, gray.Sprint(fmt.Sprintf(s, args...)), b)
 }
 
 func fmtPercent(v float64) string {
-	return humanize.FormatFloat("#,###.##", v)
+	return humanize.CommafWithDigits(v, 2)
 }
 
-func fmtInt(v int) string {
-	return humanize.FormatInteger("#,###.", v)
+func fmtInt(v int64) string {
+	return humanize.Comma(v)
+}
+
+func formattedTraffic(downloads *uint64, oldSize, newSize uint64) (string, string, string) {
+	indicatorColor := boldGray
+
+	if downloads == nil {
+		return "N/A", indicatorColor.Sprint("N/A"), indicatorColor.Sprint("N/A")
+	}
+
+	if newSize > oldSize {
+		indicatorColor = boldRed
+	} else if newSize < oldSize {
+		indicatorColor = boldGreen
+	}
+
+	oldTrafficLastWeek := big.NewInt(int64(*downloads * oldSize))
+	oldTrafficLastWeekFmt := humanize.BigBytes(oldTrafficLastWeek)
+	estNewTraffic := big.NewInt(int64(*downloads * newSize))
+	estNewTrafficFmt := humanize.BigBytes(estNewTraffic)
+
+	estTrafficChange := big.NewInt(0).Sub(oldTrafficLastWeek, estNewTraffic)
+	estTrafficChangeFmt := ""
+	if estTrafficChange.Cmp(big.NewInt(0)) == 0 {
+		estTrafficChangeFmt = indicatorColor.Sprintf("No change")
+	} else if estTrafficChange.Cmp(big.NewInt(0)) > 0 {
+		estTrafficChangeFmt = "%s saved"
+		estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
+	} else {
+		estTrafficChange.Mul(estTrafficChange, big.NewInt(-1))
+		estTrafficChangeFmt = "%s wasted"
+		estTrafficChangeFmt = indicatorColor.Sprintf(estTrafficChangeFmt, humanize.BigBytes(estTrafficChange))
+	}
+
+	return oldTrafficLastWeekFmt, indicatorColor.Sprint(estNewTrafficFmt), estTrafficChangeFmt
 }
