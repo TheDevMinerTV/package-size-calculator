@@ -295,7 +295,7 @@ func (s stats) Calculate() calculatedStats {
 
 	var percentDownloadsOfVersion *float64
 	if s.DownloadsLastWeek != nil {
-		percentDownloadsOfVersion = float64Ptr(100 * float64(*s.DownloadsLastWeek) / float64(s.TotalDownloads))
+		percentDownloadsOfVersion = float64Ptr(calculatePercentage(float64(*s.DownloadsLastWeek), float64(s.TotalDownloads)))
 	}
 
 	return calculatedStats{
@@ -318,11 +318,11 @@ type calculatedStats struct {
 }
 
 func (s calculatedStats) PercentOfPackageSubdependencies(outer int64) float64 {
-	return 100 * float64(s.Subdependencies) / float64(outer)
+	return calculatePercentage(float64(s.Subdependencies), float64(outer))
 }
 
 func (s calculatedStats) PercentOfPackageSize(outer uint64) float64 {
-	return 100 * float64(s.Size) / float64(outer)
+	return calculatePercentage(float64(s.Size), float64(outer))
 }
 
 func (s calculatedStats) FormattedPercentOfPackageTraffic(outer uint64) string {
@@ -330,7 +330,7 @@ func (s calculatedStats) FormattedPercentOfPackageTraffic(outer uint64) string {
 		return "N/A"
 	}
 
-	return fmtPercent(100 * float64(*s.TrafficLastWeek) / float64(outer))
+	return fmtPercent(calculatePercentage(float64(*s.TrafficLastWeek), float64(outer)))
 }
 
 func (s calculatedStats) FormattedTrafficLastWeek() string {
@@ -355,4 +355,8 @@ func (s calculatedStats) FormattedPercentDownloadsOfVersion() string {
 	}
 
 	return fmtPercent(*s.PercentDownloadsOfVersion)
+}
+
+func calculatePercentage(part, total float64) float64 {
+	return 100 * part / total
 }

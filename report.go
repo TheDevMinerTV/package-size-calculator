@@ -234,7 +234,7 @@ func reportSizeDifference(oldSize uint64, newSize uint64, downloads *uint64, tot
 		indicatorColor = boldGray
 	}
 
-	pcSize := 100 * float64(newSize) / float64(oldSize)
+	pcSize := calculatePercentage(float64(newSize), float64(oldSize))
 	pcSizeFmt := indicatorColor.Sprintf("%s%%", fmtPercent(pcSize))
 
 	oldTrafficLastWeekFmt, estNewTrafficFmt, estTrafficChangeFmt := formattedTraffic(downloads, oldSize, newSize)
