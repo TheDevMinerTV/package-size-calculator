@@ -37,7 +37,10 @@ func replaceDeps() {
 		if err != nil {
 			l.Error().Err(err).Msg("Failed to fetch package downloads")
 		} else {
-			dep.DownloadsLastWeek = downloads.ForVersion(dep.Version)
+			dlsLastWeek, ok := downloads.ForVersion(dep.Version)
+			if ok {
+				dep.DownloadsLastWeek = &dlsLastWeek
+			}
 			dep.TotalDownloads = downloads.Total()
 			l.Info().Msgf("Downloads last week: %v", dep.DownloadsLastWeek)
 		}
@@ -55,7 +58,7 @@ func replaceDeps() {
 			if err != nil {
 				l.Error().Err(err).Msg("Failed to parse package-lock.json")
 			} else {
-				dep.Subdependencies = len(lock.Packages)
+				dep.Subdependencies = int64(len(lock.Packages))
 			}
 
 			l.Info().Msgf("Package size: %s", humanize.Bytes(dep.Size))
@@ -121,11 +124,8 @@ const (
 
 type dependencyPackageInfo struct {
 	npm.DependencyInfo
-	Type              dependencyPackageInfoType
-	Size              uint64
-	DownloadsLastWeek uint64
-	TotalDownloads    uint64
-	Subdependencies   int
+	calculatedStats
+	Type dependencyPackageInfoType
 }
 
 func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependencies []*npm.PackageJSON) map[string]*dependencyPackageInfo {
@@ -133,21 +133,29 @@ func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependen
 
 	for _, d := range removedDependencies {
 		deps[d.String()] = &dependencyPackageInfo{
-			DependencyInfo:    d,
-			Type:              DependencyRemoved,
-			Size:              0,
-			DownloadsLastWeek: 0,
-			Subdependencies:   0,
+			DependencyInfo: d,
+			calculatedStats: calculatedStats{
+				TotalDownloads:    0,
+				DownloadsLastWeek: nil,
+				TrafficLastWeek:   nil,
+				Size:              0,
+				Subdependencies:   0,
+			},
+			Type: DependencyRemoved,
 		}
 	}
 
 	for _, d := range addedDependencies {
 		deps[d.String()] = &dependencyPackageInfo{
-			DependencyInfo:    d.AsDependency(),
-			Type:              DependencyAdded,
-			Size:              0,
-			DownloadsLastWeek: 0,
-			Subdependencies:   0,
+			DependencyInfo: d.AsDependency(),
+			Type:           DependencyAdded,
+			calculatedStats: calculatedStats{
+				TotalDownloads:    0,
+				DownloadsLastWeek: nil,
+				TrafficLastWeek:   nil,
+				Size:              0,
+				Subdependencies:   0,
+			},
 		}
 	}
 
@@ -226,32 +234,42 @@ func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packag
 		log.Fatal().Err(err).Msg("Failed to fetch package downloads")
 	}
 
-	b.DownloadsLastWeek = downloads.ForVersion(packageVersion)
-	b.TotalDownloads = downloads.Total()
+	var downloadsLastWeek *uint64
+	dls, ok := downloads.ForVersion(packageVersion)
+	if ok {
+		downloadsLastWeek = &dls
+		log.Info().Uint64("downloads", dls).Msg("Downloads last week")
+	}
 
-	b.Size, b.TmpDir, err = measurePackageSize(dockerC, b.AsDependency())
+	var size uint64
+	size, b.TmpDir, err = measurePackageSize(dockerC, b.AsDependency())
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to measure package size")
 	}
 
-	log.Info().Str("package", b.String()).Str("size", humanize.Bytes(b.Size)).Msg("Package size")
+	log.Info().Str("package", b.String()).Str("size", humanize.Bytes(size)).Msg("Package size")
 
 	b.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.TmpDir, "package-lock.json"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to parse package-lock.json")
 	}
 
+	b.Stats = stats{
+		TotalDownloads:    downloads.Total(),
+		DownloadsLastWeek: downloadsLastWeek,
+		Size:              size,
+		Subdependencies:   int64(len(b.Lockfile.Packages)),
+	}.Calculate()
+
 	return b
 }
 
 type packageInfo struct {
-	Info              *npm.PackageInfo
-	Package           npm.PackageVersion
-	Lockfile          *npm.PackageLockJSON
-	DownloadsLastWeek uint64
-	TotalDownloads    uint64
-	Size              uint64
-	TmpDir            string
+	Info     *npm.PackageInfo
+	Package  npm.PackageVersion
+	Lockfile *npm.PackageLockJSON
+	Stats    calculatedStats
+	TmpDir   string
 }
 
 func (b *packageInfo) String() string {
@@ -260,4 +278,81 @@ func (b *packageInfo) String() string {
 
 func (b *packageInfo) AsDependency() npm.DependencyInfo {
 	return b.Package.JSON.AsDependency()
+}
+
+type stats struct {
+	TotalDownloads    uint64
+	DownloadsLastWeek *uint64
+	Size              uint64
+	Subdependencies   int64
+}
+
+func (s stats) Calculate() calculatedStats {
+	var trafficLastWeek *uint64
+	if s.DownloadsLastWeek != nil {
+		trafficLastWeek = uint64Ptr(*s.DownloadsLastWeek * s.Size)
+	}
+
+	var percentDownloadsOfVersion *float64
+	if s.DownloadsLastWeek != nil {
+		percentDownloadsOfVersion = float64Ptr(100 * float64(*s.DownloadsLastWeek) / float64(s.TotalDownloads))
+	}
+
+	return calculatedStats{
+		TotalDownloads:            s.TotalDownloads,
+		DownloadsLastWeek:         s.DownloadsLastWeek,
+		TrafficLastWeek:           trafficLastWeek,
+		PercentDownloadsOfVersion: percentDownloadsOfVersion,
+		Size:                      s.Size,
+		Subdependencies:           s.Subdependencies,
+	}
+}
+
+type calculatedStats struct {
+	TotalDownloads            uint64
+	DownloadsLastWeek         *uint64
+	TrafficLastWeek           *uint64
+	PercentDownloadsOfVersion *float64
+	Size                      uint64
+	Subdependencies           int64
+}
+
+func (s calculatedStats) PercentOfPackageSubdependencies(outer int64) float64 {
+	return 100 * float64(s.Subdependencies) / float64(outer)
+}
+
+func (s calculatedStats) PercentOfPackageSize(outer uint64) float64 {
+	return 100 * float64(s.Size) / float64(outer)
+}
+
+func (s calculatedStats) FormattedPercentOfPackageTraffic(outer uint64) string {
+	if s.TrafficLastWeek == nil {
+		return "N/A"
+	}
+
+	return fmtPercent(100 * float64(*s.TrafficLastWeek) / float64(outer))
+}
+
+func (s calculatedStats) FormattedTrafficLastWeek() string {
+	if s.TrafficLastWeek == nil {
+		return "N/A"
+	}
+
+	return humanize.Bytes(*s.TrafficLastWeek)
+}
+
+func (s calculatedStats) FormattedDownloadsLastWeek() string {
+	if s.DownloadsLastWeek == nil {
+		return "N/A"
+	}
+
+	return fmtInt(int64(*s.DownloadsLastWeek))
+}
+
+func (s calculatedStats) FormattedPercentDownloadsOfVersion() string {
+	if s.PercentDownloadsOfVersion == nil {
+		return "N/A"
+	}
+
+	return fmtPercent(*s.PercentDownloadsOfVersion)
 }

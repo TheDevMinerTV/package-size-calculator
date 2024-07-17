@@ -69,3 +69,11 @@ func runSelect(s *promptui.Select) (int, string, error) {
 func runPrompt(p *promptui.Prompt) (string, error) {
 	return p.Run()
 }
+
+func uint64Ptr(i uint64) *uint64 {
+	return &i
+}
+
+func float64Ptr(f float64) *float64 {
+	return &f
+}
