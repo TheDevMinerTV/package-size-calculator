@@ -73,10 +73,12 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 	return func(s string) (*npm.PackageJSON, error) {
 		l := log.With().Str("package", s).Logger()
 
-		split := strings.Split(s, " ")
-		if len(split) > 2 {
-			log.Error().Msg("Invalid package format")
-			return nil, ui_components.ErrRetry
+		split := strings.SplitN(s, " ", 2)
+
+		constraint := ""
+
+		if len(split) == 1 && strings.Contains(s, "@") && !strings.HasPrefix(s, "@") {
+			split = strings.SplitN(s, "@", 2)
 		}
 
 		log.Info().Msgf("Resolving package \"%s\"...", s)
@@ -93,9 +95,10 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 			return &latest, nil
 		}
 
-		l = log.With().Str("constraint", split[1]).Logger()
+		constraint = split[1]
+		l = log.With().Str("constraint", constraint).Logger()
 
-		c, err := npm_version.NewConstraints(split[1])
+		c, err := npm_version.NewConstraints(constraint)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to create constraints")
 			return nil, ui_components.ErrRetry
