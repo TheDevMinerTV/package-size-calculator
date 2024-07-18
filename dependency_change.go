@@ -56,7 +56,7 @@ func replaceDeps() {
 			if err != nil {
 				l.Error().Err(err).Msg("Failed to parse package-lock.json")
 			} else {
-				dep.Subdependencies = int64(len(lock.Packages))
+				dep.Subdependencies = uint64(len(lock.Packages))
 			}
 
 			l.Info().Msgf("Package size: %s", humanize.Bytes(dep.Size))
@@ -254,7 +254,7 @@ func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packag
 		TotalDownloads:    downloads.Total(),
 		DownloadsLastWeek: downloadsLastWeek,
 		Size:              size,
-		Subdependencies:   int64(len(b.Lockfile.Packages)),
+		Subdependencies:   uint64(len(b.Lockfile.Packages)),
 	}.Calculate()
 
 	return b
@@ -280,7 +280,7 @@ type stats struct {
 	TotalDownloads    uint64
 	DownloadsLastWeek *uint64
 	Size              uint64
-	Subdependencies   int64
+	Subdependencies   uint64
 }
 
 func (s stats) Calculate() calculatedStats {
@@ -310,10 +310,10 @@ type calculatedStats struct {
 	TrafficLastWeek           *uint64
 	PercentDownloadsOfVersion *float64
 	Size                      uint64
-	Subdependencies           int64
+	Subdependencies           uint64
 }
 
-func (s calculatedStats) PercentOfPackageSubdependencies(outer int64) float64 {
+func (s calculatedStats) PercentOfPackageSubdependencies(outer uint64) float64 {
 	return calculatePercentage(float64(s.Subdependencies), float64(outer))
 }
 
@@ -327,6 +327,14 @@ func (s calculatedStats) FormattedPercentOfPackageTraffic(outer uint64) string {
 	}
 
 	return fmtPercent(calculatePercentage(float64(*s.TrafficLastWeek), float64(outer)))
+}
+
+func (s calculatedStats) FormattedPercentDownloadsOfVersion() string {
+	if s.PercentDownloadsOfVersion == nil {
+		return "N/A"
+	}
+
+	return fmtPercent(*s.PercentDownloadsOfVersion)
 }
 
 func (s calculatedStats) FormattedTrafficLastWeek() string {
@@ -345,12 +353,8 @@ func (s calculatedStats) FormattedDownloadsLastWeek() string {
 	return fmtInt(int64(*s.DownloadsLastWeek))
 }
 
-func (s calculatedStats) FormattedPercentDownloadsOfVersion() string {
-	if s.PercentDownloadsOfVersion == nil {
-		return "N/A"
-	}
-
-	return fmtPercent(*s.PercentDownloadsOfVersion)
+func (s calculatedStats) FormattedSubdependencies() string {
+	return fmtInt(int64(s.Subdependencies))
 }
 
 func calculatePercentage(part, total float64) float64 {
