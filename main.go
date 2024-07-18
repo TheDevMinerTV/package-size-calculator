@@ -43,7 +43,7 @@ func main() {
 	}
 	log.Info().Msgf("Pulling %s image for measuring package sizes", BaseImage)
 	if err := downloadBaseImage(dockerC); err != nil {
-		log.Fatal().Err(err).Msg("Failed to download Node 20 image")
+		log.Fatal().Err(err).Msg("Failed to download Node 22 image")
 	}
 
 	variant, _, err := runSelect(&promptui.Select{
