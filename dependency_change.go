@@ -56,7 +56,7 @@ func replaceDeps() {
 			if err != nil {
 				l.Error().Err(err).Msg("Failed to parse package-lock.json")
 			} else {
-				dep.Subdependencies = uint64(len(lock.Packages))
+				dep.Subdependencies = getSubdependenciesCount(lock)
 			}
 
 			l.Info().Msgf("Package size: %s", humanize.Bytes(dep.Size))
@@ -254,7 +254,7 @@ func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packag
 		TotalDownloads:    downloads.Total(),
 		DownloadsLastWeek: downloadsLastWeek,
 		Size:              size,
-		Subdependencies:   uint64(len(b.Lockfile.Packages)),
+		Subdependencies:   getSubdependenciesCount(b.Lockfile),
 	}.Calculate()
 
 	return b
@@ -359,4 +359,10 @@ func (s calculatedStats) FormattedSubdependencies() string {
 
 func calculatePercentage(part, total float64) float64 {
 	return 100 * part / total
+}
+
+func getSubdependenciesCount(lock *npm.PackageLockJSON) uint64 {
+	// We need to subtract by 1 because the installed package is included in
+	// the lockfile, which we only want the subdependencies
+	return uint64(len(lock.Packages) - 1)
 }

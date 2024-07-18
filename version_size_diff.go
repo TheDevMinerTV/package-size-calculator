@@ -115,7 +115,7 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 			log.Fatal().Err(err).Msg("Failed to parse old package-lock.json")
 		}
 
-		oldStats.Subdependencies = uint64(len(b.Old.Lockfile.Packages))
+		oldStats.Subdependencies = getSubdependenciesCount(b.Old.Lockfile)
 	}()
 
 	go func() {
@@ -131,7 +131,7 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 			log.Fatal().Err(err).Msg("Failed to parse new package-lock.json")
 		}
 
-		newStats.Subdependencies = uint64(len(b.New.Lockfile.Packages))
+		newStats.Subdependencies = getSubdependenciesCount(b.New.Lockfile)
 	}()
 
 	wg.Wait()

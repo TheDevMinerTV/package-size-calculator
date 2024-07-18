@@ -33,7 +33,7 @@ func printReport(
 	packageJson := package_.JSON
 	downloadsLastWeek := modifiedPackage.Stats.DownloadsLastWeek
 	oldPackageSize := modifiedPackage.Stats.Size
-	oldSubdependencies := uint64(len(modifiedPackage.Lockfile.Packages))
+	oldSubdependencies := getSubdependenciesCount(modifiedPackage.Lockfile)
 
 	modifiedPackageName := boldYellow.Sprint(packageJson.String())
 
@@ -43,10 +43,16 @@ func printReport(
 	for _, p := range deps {
 		if p.Type == DependencyRemoved {
 			newPackageSize -= p.Size
-			newSubdependencies -= p.Subdependencies
 			packageSizeWithoutRemovedDeps -= p.Size
+			// This package
+			newSubdependencies -= 1
+			// It's subdependencies
+			newSubdependencies -= p.Subdependencies
 		} else {
 			newPackageSize += p.Size
+			// This package
+			newSubdependencies += 1
+			// It's subdependencies
 			newSubdependencies += p.Subdependencies
 		}
 	}
