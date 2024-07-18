@@ -13,6 +13,8 @@ import (
 	docker_image "github.com/docker/docker/api/types/image"
 	docker_mount "github.com/docker/docker/api/types/mount"
 	docker_client "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/moby/term"
 	"github.com/rs/zerolog/log"
 )
 
@@ -23,9 +25,8 @@ func downloadBaseImage(c *docker_client.Client) error {
 	}
 	defer output.Close()
 
-	_, err = io.Copy(os.Stdout, output)
-
-	return err
+	termFd, isTerm := term.GetFdInfo(os.Stderr)
+	return jsonmessage.DisplayJSONMessagesStream(output, os.Stderr, termFd, isTerm, nil)
 }
 
 func installPackageInContainer(dockerC *docker_client.Client, package_ npm.DependencyInfo) (string, error) {
