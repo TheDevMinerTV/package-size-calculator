@@ -20,8 +20,14 @@ func calculateVersionSizeChange() {
 	fmt.Println()
 	reportPackageInfo(&pkg.New, false, 0)
 	fmt.Println()
-	reportSizeDifference(pkg.Old.Stats.Size, pkg.New.Stats.Size, pkg.Old.Stats.DownloadsLastWeek, pkg.New.Stats.TotalDownloads)
-	reportSubdependencies(int64(len(pkg.Old.Lockfile.Packages)), int64(len(pkg.New.Lockfile.Packages)))
+	reportEstimatedStatistics(
+		pkg.Old.Stats.Size,
+		pkg.New.Stats.Size,
+		pkg.Old.Stats.DownloadsLastWeek,
+		pkg.New.Stats.TotalDownloads,
+		pkg.Old.Stats.Subdependencies,
+		pkg.New.Stats.Subdependencies,
+	)
 }
 
 func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client) *packageVersionsInfo {
@@ -109,7 +115,7 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 			log.Fatal().Err(err).Msg("Failed to parse old package-lock.json")
 		}
 
-		oldStats.Subdependencies = int64(len(b.Old.Lockfile.Packages))
+		oldStats.Subdependencies = uint64(len(b.Old.Lockfile.Packages))
 	}()
 
 	go func() {
@@ -125,7 +131,7 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 			log.Fatal().Err(err).Msg("Failed to parse new package-lock.json")
 		}
 
-		newStats.Subdependencies = int64(len(b.New.Lockfile.Packages))
+		newStats.Subdependencies = uint64(len(b.New.Lockfile.Packages))
 	}()
 
 	wg.Wait()
