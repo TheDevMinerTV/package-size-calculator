@@ -5,8 +5,6 @@ import (
 	"package_size_calculator/pkg/npm"
 	"package_size_calculator/pkg/ui_components"
 	"path/filepath"
-	"slices"
-	"sort"
 	"strings"
 	"sync"
 
@@ -74,8 +72,7 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 		l := log.With().Str("package", s).Logger()
 
 		split := strings.SplitN(s, " ", 2)
-
-		constraint := ""
+		log.Trace().Strs("split", split).Msg("Split package")
 
 		if len(split) == 1 && strings.Contains(s, "@") && !strings.HasPrefix(s, "@") {
 			split = strings.SplitN(s, "@", 2)
@@ -89,14 +86,17 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 		}
 
 		if len(split) == 1 {
+			l.Trace().Msg("No constraint specified, using latest version")
+
 			latest := info.LatestVersion.JSON
 			l.Info().Str("version", latest.Version).Msg("Found latest version")
 
 			return &latest, nil
 		}
 
-		constraint = split[1]
+		constraint := split[1]
 		l = log.With().Str("constraint", constraint).Logger()
+		l.Trace().Msg("Resolving constraint")
 
 		c, err := npm_version.NewConstraints(constraint)
 		if err != nil {
@@ -104,17 +104,16 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 			return nil, ui_components.ErrRetry
 		}
 
-		for _, v := range info.Versions {
-			if c.Check(v.Version) {
-				l.Info().Str("version", v.JSON.Version).Msg("Found version")
+		version := info.Versions.Match(c)
+		if version == nil {
+			log.Error().Msg("No matching version could be found")
 
-				return &v.JSON, nil
-			}
+			return nil, ui_components.ErrRetry
 		}
 
-		log.Error().Msg("No matching version could be found")
+		l.Info().Str("version", version.JSON.Version).Msg("Found version")
 
-		return nil, ui_components.ErrRetry
+		return &version.JSON, nil
 	}
 }
 
@@ -186,13 +185,7 @@ func promptRemovedDependencies(packageJson npm.PackageJSON, pkgLock *npm.Package
 }
 
 func promptPackageVersion(packageInfo *npm.PackageInfo, label string) string {
-	versions := make([]npm_version.Version, 0)
-	for _, v := range packageInfo.Versions {
-		versions = append(versions, v.Version)
-	}
-
-	sort.Sort(npm_version.Collection(versions))
-	slices.Reverse(versions)
+	versions := packageInfo.Versions.Sorted()
 
 	_, packageVersion, err := runSelect(&promptui.Select{
 		Label: label,

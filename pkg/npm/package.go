@@ -3,6 +3,8 @@ package npm
 import (
 	"encoding/json"
 	"net/url"
+	"slices"
+	"sort"
 	"time"
 
 	npm_version "github.com/aquasecurity/go-npm-version/pkg"
@@ -80,4 +82,28 @@ func (p *PackageVersions) UnmarshalJSON(data []byte) error {
 	}
 
 	return nil
+}
+
+func (p *PackageVersions) Match(c npm_version.Constraints) *PackageVersion {
+	for _, version := range p.Sorted() {
+		if !c.Check(version) {
+			continue
+		}
+
+		v := (*p)[version.String()]
+		return &v
+	}
+
+	return nil
+}
+
+func (p *PackageVersions) Sorted() []npm_version.Version {
+	versions := make([]npm_version.Version, 0, len(*p))
+	for _, version := range *p {
+		versions = append(versions, version.Version)
+	}
+	sort.Sort(npm_version.Collection(versions))
+	slices.Reverse(versions)
+
+	return versions
 }
