@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"package_size_calculator/internal"
 	"package_size_calculator/internal/build"
 	"package_size_calculator/pkg/npm"
 
@@ -46,7 +47,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to download Node 22 image")
 	}
 
-	variant, _, err := runSelect(&promptui.Select{
+	variant, _, err := internal.RunSelect(&promptui.Select{
 		Label: "Select variant",
 		Items: []string{"Calculate size differences for replacing/removing dependencies", "Calculate size difference between package versions"},
 	})
@@ -60,20 +61,4 @@ func main() {
 	case 1:
 		calculateVersionSizeChange()
 	}
-}
-
-func runSelect(s *promptui.Select) (int, string, error) {
-	return s.Run()
-}
-
-func runPrompt(p *promptui.Prompt) (string, error) {
-	return p.Run()
-}
-
-func uint64Ptr(i uint64) *uint64 {
-	return &i
-}
-
-func float64Ptr(f float64) *float64 {
-	return &f
 }

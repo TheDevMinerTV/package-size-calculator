@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"package_size_calculator/internal"
 	"package_size_calculator/pkg/npm"
 	"path/filepath"
 	"sync"
@@ -31,7 +32,7 @@ func calculateVersionSizeChange() {
 }
 
 func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client) *packageVersionsInfo {
-	packageName, err := runPrompt(&promptui.Prompt{Label: "Package"})
+	packageName, err := internal.RunPrompt(&promptui.Prompt{Label: "Package"})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Prompt failed")
 	}

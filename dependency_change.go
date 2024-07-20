@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"package_size_calculator/internal"
 	"package_size_calculator/pkg/npm"
 	"package_size_calculator/pkg/ui_components"
 	"path/filepath"
@@ -187,7 +188,7 @@ func promptRemovedDependencies(packageJson npm.PackageJSON, pkgLock *npm.Package
 func promptPackageVersion(packageInfo *npm.PackageInfo, label string) string {
 	versions := packageInfo.Versions.Sorted()
 
-	_, packageVersion, err := runSelect(&promptui.Select{
+	_, packageVersion, err := internal.RunSelect(&promptui.Select{
 		Label: label,
 		Items: versions,
 		Size:  int(math.Min(float64(len(versions)), 16)),
@@ -203,7 +204,7 @@ func promptPackageVersion(packageInfo *npm.PackageInfo, label string) string {
 }
 
 func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packageInfo {
-	packageName, err := runPrompt(&promptui.Prompt{Label: "Package"})
+	packageName, err := internal.RunPrompt(&promptui.Prompt{Label: "Package"})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Prompt failed")
 	}
@@ -286,12 +287,12 @@ type stats struct {
 func (s stats) Calculate() calculatedStats {
 	var trafficLastWeek *uint64
 	if s.DownloadsLastWeek != nil {
-		trafficLastWeek = uint64Ptr(*s.DownloadsLastWeek * s.Size)
+		trafficLastWeek = internal.U64Ptr(*s.DownloadsLastWeek * s.Size)
 	}
 
 	var percentDownloadsOfVersion *float64
 	if s.DownloadsLastWeek != nil {
-		percentDownloadsOfVersion = float64Ptr(calculatePercentage(float64(*s.DownloadsLastWeek), float64(s.TotalDownloads)))
+		percentDownloadsOfVersion = internal.F64Ptr(calculatePercentage(float64(*s.DownloadsLastWeek), float64(s.TotalDownloads)))
 	}
 
 	return calculatedStats{
