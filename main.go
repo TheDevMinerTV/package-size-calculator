@@ -14,16 +14,20 @@ import (
 )
 
 const (
-	BaseImage     = "node:22"
-	MountNPMCache = ""
+	BaseImage = "node:22"
 )
 
 var (
 	npmClient *npm.Client
 	dockerC   *docker_client.Client
 
-	fShortMode = flag.Bool("short", false, "Print a shorter version of the package report, ideal for posts to Twitter")
-	fNoCleanup = flag.Bool("no-cleanup", false, "Do not cleanup the temporary directories after the execution")
+	npmCache   internal.TmpDir
+	npmCacheRO = false
+
+	fShortMode  = flag.Bool("short", false, "Print a shorter version of the package report, ideal for posts to Twitter")
+	fNoCleanup  = flag.Bool("no-cleanup", false, "Do not cleanup the temporary directories after the execution")
+	fNPMCache   = flag.String("npm-cache", "", "Use the specified directory as the NPM cache")
+	fNPMCacheRW = flag.Bool("npm-cache-rw", true, "Mount the NPM cache directory as read-write")
 )
 
 func main() {
@@ -46,6 +50,29 @@ func main() {
 	log.Info().Msgf("Pulling %s image for measuring package sizes", BaseImage)
 	if err := downloadBaseImage(dockerC); err != nil {
 		log.Fatal().Err(err).Msg("Failed to download Node 22 image")
+	}
+
+	if *fNPMCache == "" {
+		npmCache, err = internal.NewTmpDir("npm_cache_*")
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to create temporary directory for NPM cache")
+		}
+		defer func() {
+			if !*fNoCleanup {
+				return
+			}
+
+			npmCache.Remove()
+
+			log.Debug().Str("dir", npmCache.String()).Msg("Cleaned up temporary directory for NPM cache")
+		}()
+
+		log.Debug().Str("dir", npmCache.String()).Msg("Created temporary directory for NPM cache")
+	} else {
+		npmCache = internal.TmpDir(*fNPMCache)
+		npmCacheRO = !*fNPMCacheRW
+
+		log.Debug().Str("dir", npmCache.String()).Bool("readonly", npmCacheRO).Msg("Using specified directory as NPM cache")
 	}
 
 	variant, _, err := internal.RunSelect(&promptui.Select{
