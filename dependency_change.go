@@ -70,9 +70,9 @@ func replaceDeps() {
 			dlsLastWeek, ok := downloads.ForVersion(dep.Version)
 			if ok {
 				dep.DownloadsLastWeek = &dlsLastWeek
+				l.Info().Msgf("Downloads last week: %d", dep.DownloadsLastWeek)
 			}
 			dep.TotalDownloads = downloads.Total()
-			l.Info().Msgf("Downloads last week: %v", dep.DownloadsLastWeek)
 		}
 
 		go func(dep *dependencyPackageInfo) {
