@@ -104,19 +104,17 @@ func runContainer(ctx context.Context, cmd []string, tmpDir internal.TmpDir) err
 		},
 	}
 
-	if MountNPMCache != "" {
-		if !filepath.IsAbs(MountNPMCache) {
-			return fmt.Errorf("MountNPMCache must be an absolute path")
-		}
+	hostConfig.Mounts = append(hostConfig.Mounts, docker_mount.Mount{
+		Type:     docker_mount.TypeBind,
+		Source:   string(npmCache),
+		Target:   "/root/.cache/npm",
+		ReadOnly: npmCacheRO,
+	})
 
-		hostConfig.Mounts = append(hostConfig.Mounts, docker_mount.Mount{
-			Type:     docker_mount.TypeBind,
-			Source:   MountNPMCache,
-			Target:   "/root/.npm",
-			ReadOnly: true,
-		})
-
-		log.Info().Str("path", MountNPMCache).Msg("Mounting readonly NPM cache")
+	if npmCacheRO {
+		log.Info().Str("path", string(npmCache)).Msg("Mounting readonly NPM cache")
+	} else {
+		log.Info().Str("path", string(npmCache)).Msg("Mounting NPM cache")
 	}
 
 	c, err := dockerC.ContainerCreate(ctx, &config, &hostConfig, nil, nil, "")

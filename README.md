@@ -16,6 +16,9 @@ The following additional flags are available:
 ```
 --short      : Print a shorter version of the package report, ideal for posts to Twitter
 --no-cleanup : Don't remove the temporary directory after the calculation
+
+--npm-cache <DIRECTORY>: Use the specified directory as the NPM cache, defaults to generating a temporary directory
+--npm-cache-read-write : Mount the NPM cache directory as read-write, defaults to true, only honored if --npm-cache is specified
 ```
 
 ## License
