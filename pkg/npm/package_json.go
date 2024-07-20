@@ -2,6 +2,7 @@ package npm
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"unicode"
 
@@ -9,10 +10,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var (
+	ErrImproperVersionConstraintFormat = errors.New("improper version constraint format")
+)
+
 type PackageJSON struct {
-	Name         string             `json:"name"`
-	Version      string             `json:"version"`
-	Dependencies NormalDependencies `json:"dependencies"`
+	Name         string              `json:"name"`
+	Version      string              `json:"version"`
+	Dependencies PackageDependencies `json:"dependencies"`
 }
 
 func (p PackageJSON) String() string {
@@ -26,44 +31,68 @@ func (p PackageJSON) AsDependency() DependencyInfo {
 	}
 }
 
-type NormalDependencies []Dependency
+type PackageDependencies map[string]Dependency
 
-func (d *NormalDependencies) UnmarshalJSON(data []byte) error {
+func (d *PackageDependencies) UnmarshalJSON(data []byte) error {
 	var raw map[string]string
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
 
+	(*d) = make(PackageDependencies)
+
 	for name, rawConstraint := range raw {
 		l := log.With().Str("name", name).Str("rawConstraint", rawConstraint).Logger()
 
-		l.Trace().Msg("Adding normal dependency")
-
-		if len(rawConstraint) == 0 || unicode.IsLetter(rune(rawConstraint[0])) {
-			// l.Warn().Msg("Skipping dependency with improper version constraint format")
-			continue
-		}
-
-		c, err := npm_version.NewConstraints(rawConstraint)
+		dep, err := newDependency(name, rawConstraint)
 		if err != nil {
-			// l.Warn().Err(err).Msg("Failed to create constraints")
+			if errors.Is(err, ErrImproperVersionConstraintFormat) {
+				l.Warn().Msg("Skipping dependency with improper version constraint format")
+			} else {
+				l.Warn().Err(err).Msg("Failed to create constraints")
+			}
+
 			continue
 		}
 
-		*d = append(*d, Dependency{
-			Name:          name,
-			RawConstraint: rawConstraint,
-			Constraint:    c,
-		})
+		l.Trace().Msg("Adding dependency")
+
+		(*d)[dep.Name] = dep
 	}
 
 	return nil
+}
+
+func (d PackageDependencies) MarshalJSON() ([]byte, error) {
+	raw := make(map[string]string)
+	for _, dep := range d {
+		raw[dep.Name] = dep.RawConstraint
+	}
+
+	return json.Marshal(raw)
 }
 
 type Dependency struct {
 	Name          string
 	RawConstraint string
 	Constraint    npm_version.Constraints
+}
+
+func newDependency(name, rawConstraint string) (Dependency, error) {
+	if len(rawConstraint) == 0 || unicode.IsLetter(rune(rawConstraint[0])) {
+		return Dependency{}, ErrImproperVersionConstraintFormat
+	}
+
+	c, err := npm_version.NewConstraints(rawConstraint)
+	if err != nil {
+		return Dependency{}, err
+	}
+
+	return Dependency{
+		Name:          name,
+		RawConstraint: rawConstraint,
+		Constraint:    c,
+	}, nil
 }
 
 func (d Dependency) String() string {
