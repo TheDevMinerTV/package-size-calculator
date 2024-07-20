@@ -6,14 +6,13 @@ import (
 	"package_size_calculator/pkg/npm"
 	"sync"
 
-	docker_client "github.com/docker/docker/client"
 	"github.com/dustin/go-humanize"
 	"github.com/manifoldco/promptui"
 	"github.com/rs/zerolog/log"
 )
 
 func calculateVersionSizeChange() {
-	pkg := promptPackageVersions(npmClient, dockerC)
+	pkg := promptPackageVersions(npmClient)
 
 	fmt.Println()
 	reportPackageInfo(&pkg.Old, false, 0)
@@ -30,7 +29,7 @@ func calculateVersionSizeChange() {
 	)
 }
 
-func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client) *packageVersionsInfo {
+func promptPackageVersions(npmClient *npm.Client) *packageVersionsInfo {
 	packageName, err := internal.RunPrompt(&promptui.Prompt{Label: "Package"})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Prompt failed")
@@ -105,7 +104,7 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 	go func() {
 		defer wg.Done()
 
-		oldStats.Size, b.Old.TmpDir, err = measurePackageSize(dockerC, b.Old.AsDependency())
+		oldStats.Size, b.Old.TmpDir, err = measurePackageSize(b.Old.AsDependency())
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to measure old package size")
 		}
@@ -121,7 +120,7 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 	go func() {
 		defer wg.Done()
 
-		newStats.Size, b.New.TmpDir, err = measurePackageSize(dockerC, b.New.AsDependency())
+		newStats.Size, b.New.TmpDir, err = measurePackageSize(b.New.AsDependency())
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to measure new package size")
 		}

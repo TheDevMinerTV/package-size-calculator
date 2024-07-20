@@ -4,12 +4,11 @@ import (
 	"package_size_calculator/internal"
 	"package_size_calculator/pkg/npm"
 
-	docker_client "github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
-func measurePackageSize(dockerC *docker_client.Client, package_ npm.DependencyInfo) (uint64, internal.TmpDir, error) {
+func measurePackageSize(package_ npm.DependencyInfo) (uint64, internal.TmpDir, error) {
 	l := log.With().Str("package", package_.String()).Logger()
 
 	tmpDir, err := installPackageInContainer(package_)

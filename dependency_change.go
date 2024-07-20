@@ -9,14 +9,13 @@ import (
 	"sync"
 
 	npm_version "github.com/aquasecurity/go-npm-version/pkg"
-	docker_client "github.com/docker/docker/client"
 	"github.com/dustin/go-humanize"
 	"github.com/manifoldco/promptui"
 	"github.com/rs/zerolog/log"
 )
 
 func replaceDeps() {
-	pkg := promptPackage(npmClient, dockerC)
+	pkg := promptPackage(npmClient)
 	removedDependencies := promptRemovedDependencies(pkg.Package.JSON, pkg.Lockfile)
 
 	addedDependencies, err := ui_components.NewEditableList("Added dependencies", resolveNPMPackage(npmClient)).Run()
@@ -80,7 +79,7 @@ func replaceDeps() {
 			defer wg.Done()
 
 			var tmpDir internal.TmpDir
-			dep.Size, tmpDir, err = measurePackageSize(dockerC, dep.DependencyInfo)
+			dep.Size, tmpDir, err = measurePackageSize(dep.DependencyInfo)
 			if err != nil {
 				l.Fatal().Err(err).Msg("Failed to measure package size")
 			}
@@ -237,7 +236,7 @@ func promptPackageVersion(packageInfo *npm.PackageInfo, label string) string {
 	return packageVersion
 }
 
-func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packageInfo {
+func promptPackage(npmClient *npm.Client) *packageInfo {
 	packageName, err := internal.RunPrompt(&promptui.Prompt{Label: "Package"})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Prompt failed")
@@ -273,7 +272,7 @@ func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packag
 	}
 
 	var size uint64
-	size, b.TmpDir, err = measurePackageSize(dockerC, b.AsDependency())
+	size, b.TmpDir, err = measurePackageSize(b.AsDependency())
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to measure package size")
 	}
