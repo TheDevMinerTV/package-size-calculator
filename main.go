@@ -23,6 +23,7 @@ var (
 	dockerC   *docker_client.Client
 
 	fShortMode = flag.Bool("short", false, "Print a shorter version of the package report, ideal for posts to Twitter")
+	fNoCleanup = flag.Bool("no-cleanup", false, "Do not cleanup the temporary directories after the execution")
 )
 
 func main() {

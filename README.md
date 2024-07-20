@@ -14,7 +14,8 @@ package-size-calculator
 
 The following additional flags are available:
 ```
---short    : Print a shorter version of the package report, ideal for posts to Twitter
+--short      : Print a shorter version of the package report, ideal for posts to Twitter
+--no-cleanup : Don't remove the temporary directory after the calculation
 ```
 
 ## License

@@ -29,17 +29,25 @@ func downloadBaseImage(c *docker_client.Client) error {
 	return jsonmessage.DisplayJSONMessagesStream(output, os.Stderr, termFd, isTerm, nil)
 }
 
-func installPackageInContainer(dockerC *docker_client.Client, package_ npm.DependencyInfo) (string, error) {
+func installPackageInContainer(dockerC *docker_client.Client, package_ npm.DependencyInfo) (internal.TmpDir, error) {
 	ctx := context.Background()
 
-	tempDir, err := os.MkdirTemp(os.TempDir(), fmt.Sprintf("package_size_%s_*", internal.SanetizeFileName(package_.String())))
+	tmpDir, err := internal.NewTmpDir(fmt.Sprintf("package_size_%s_*", internal.SanetizeFileName(package_.String())))
 	if err != nil {
-		return "", err
+		return tmpDir, err
 	}
-	log.Trace().Str("dir", tempDir).Msg("Created temp dir")
+	log.Trace().Str("dir", tmpDir.String()).Msg("Created temp dir")
 
 	cmd := []string{"npm", "install", "--loglevel", "verbose", package_.String()}
 
+	if err := runContainer(ctx, cmd, tmpDir); err != nil {
+		return tmpDir, err
+	}
+
+	return tmpDir, nil
+}
+
+func runContainer(ctx context.Context, cmd []string, tmpDir internal.TmpDir) error {
 	config := docker_container.Config{
 		Image:        BaseImage,
 		Tty:          true,
@@ -55,7 +63,7 @@ func installPackageInContainer(dockerC *docker_client.Client, package_ npm.Depen
 		Mounts: []docker_mount.Mount{
 			{
 				Type:   docker_mount.TypeBind,
-				Source: tempDir,
+				Source: tmpDir.String(),
 				Target: "/app",
 			},
 		},
@@ -63,7 +71,7 @@ func installPackageInContainer(dockerC *docker_client.Client, package_ npm.Depen
 
 	if MountNPMCache != "" {
 		if !filepath.IsAbs(MountNPMCache) {
-			return tempDir, fmt.Errorf("MountNPMCache must be an absolute path")
+			return fmt.Errorf("MountNPMCache must be an absolute path")
 		}
 
 		hostConfig.Mounts = append(hostConfig.Mounts, docker_mount.Mount{
@@ -78,7 +86,7 @@ func installPackageInContainer(dockerC *docker_client.Client, package_ npm.Depen
 
 	c, err := dockerC.ContainerCreate(ctx, &config, &hostConfig, nil, nil, "")
 	if err != nil {
-		return tempDir, err
+		return err
 	}
 	log.Debug().Str("id", c.ID).Msg("Created container")
 
@@ -89,7 +97,7 @@ func installPackageInContainer(dockerC *docker_client.Client, package_ npm.Depen
 	}()
 
 	if err := dockerC.ContainerStart(ctx, c.ID, docker_container.StartOptions{}); err != nil {
-		return tempDir, err
+		return err
 	}
 	log.Trace().Msg("Started container")
 
@@ -101,7 +109,7 @@ func installPackageInContainer(dockerC *docker_client.Client, package_ npm.Depen
 		Tail:       "all",
 	})
 	if err != nil {
-		return tempDir, err
+		return err
 	}
 
 	go func() {
@@ -117,7 +125,7 @@ func installPackageInContainer(dockerC *docker_client.Client, package_ npm.Depen
 	case err := <-errCh:
 		log.Error().Err(err).Msg("Container exited with error")
 		if err != nil {
-			return tempDir, err
+			return err
 		}
 	case w := <-statusCh:
 		if w.StatusCode == 0 {
@@ -127,9 +135,9 @@ func installPackageInContainer(dockerC *docker_client.Client, package_ npm.Depen
 		}
 
 		if w.Error != nil {
-			return tempDir, fmt.Errorf("failed to wait for container: %v", w.Error.Message)
+			return fmt.Errorf("failed to wait for container: %v", w.Error.Message)
 		}
 	}
 
-	return tempDir, nil
+	return nil
 }

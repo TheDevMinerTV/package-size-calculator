@@ -5,7 +5,6 @@ import (
 	"package_size_calculator/internal"
 	"package_size_calculator/pkg/npm"
 	"package_size_calculator/pkg/ui_components"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -47,13 +46,16 @@ func replaceDeps() {
 		go func(dep *dependencyPackageInfo) {
 			defer wg.Done()
 
-			var tmpDir string
+			var tmpDir internal.TmpDir
 			dep.Size, tmpDir, err = measurePackageSize(dockerC, dep.DependencyInfo)
 			if err != nil {
 				l.Fatal().Err(err).Msg("Failed to measure package size")
 			}
+			if !*fNoCleanup {
+				defer tmpDir.Remove()
+			}
 
-			lock, err := npm.ParsePackageLockJSON(filepath.Join(tmpDir, "package-lock.json"))
+			lock, err := npm.ParsePackageLockJSON(tmpDir.Join("package-lock.json"))
 			if err != nil {
 				l.Error().Err(err).Msg("Failed to parse package-lock.json")
 			} else {
@@ -243,10 +245,13 @@ func promptPackage(npmClient *npm.Client, dockerC *docker_client.Client) *packag
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to measure package size")
 	}
+	if !*fNoCleanup {
+		defer b.TmpDir.Remove()
+	}
 
 	log.Info().Str("package", b.String()).Str("size", humanize.Bytes(size)).Msg("Package size")
 
-	b.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.TmpDir, "package-lock.json"))
+	b.Lockfile, err = npm.ParsePackageLockJSON(b.TmpDir.Join("package-lock.json"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to parse package-lock.json")
 	}
@@ -266,7 +271,7 @@ type packageInfo struct {
 	Package  npm.PackageVersion
 	Lockfile *npm.PackageLockJSON
 	Stats    calculatedStats
-	TmpDir   string
+	TmpDir   internal.TmpDir
 }
 
 func (b *packageInfo) String() string {

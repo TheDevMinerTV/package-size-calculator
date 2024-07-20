@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"package_size_calculator/internal"
 	"package_size_calculator/pkg/npm"
-	"path/filepath"
 	"sync"
 
 	docker_client "github.com/docker/docker/client"
@@ -111,7 +110,7 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 			log.Fatal().Err(err).Msg("Failed to measure old package size")
 		}
 
-		b.Old.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.Old.TmpDir, "package-lock.json"))
+		b.Old.Lockfile, err = npm.ParsePackageLockJSON(b.Old.TmpDir.Join("package-lock.json"))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to parse old package-lock.json")
 		}
@@ -127,7 +126,7 @@ func promptPackageVersions(npmClient *npm.Client, dockerC *docker_client.Client)
 			log.Fatal().Err(err).Msg("Failed to measure new package size")
 		}
 
-		b.New.Lockfile, err = npm.ParsePackageLockJSON(filepath.Join(b.New.TmpDir, "package-lock.json"))
+		b.New.Lockfile, err = npm.ParsePackageLockJSON(b.New.TmpDir.Join("package-lock.json"))
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to parse new package-lock.json")
 		}
