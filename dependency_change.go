@@ -16,8 +16,8 @@ import (
 )
 
 func replaceDeps() {
-	modifiedPackage := promptPackage(npmClient, dockerC)
-	removedDependencies := promptRemovedDependencies(modifiedPackage.Package.JSON, modifiedPackage.Lockfile)
+	pkg := promptPackage(npmClient, dockerC)
+	removedDependencies := promptRemovedDependencies(pkg.Package.JSON, pkg.Lockfile)
 
 	addedDependencies, err := ui_components.NewEditableList("Added dependencies", resolveNPMPackage(npmClient)).Run()
 	if err != nil {
@@ -26,7 +26,40 @@ func replaceDeps() {
 
 	deps := combineDependencies(removedDependencies, addedDependencies)
 
+	statistics := &ModifiedStats{}
+
 	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		addedAsDeps := make([]npm.DependencyInfo, 0, len(addedDependencies))
+		for _, d := range addedDependencies {
+			addedAsDeps = append(addedAsDeps, d.AsDependency())
+		}
+
+		tmpDir, err := modifyPackage(pkg.Package.JSON, addedAsDeps, removedDependencies)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to modify package")
+		}
+		if !*fNoCleanup {
+			defer tmpDir.Remove()
+		}
+
+		statistics.Size, err = internal.DirSize(tmpDir.Join("node_modules"))
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to measure new package size")
+		}
+
+		lock, err := npm.ParsePackageLockJSON(tmpDir.Join("package-lock.json"))
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to parse new package-lock.json")
+		}
+
+		statistics.Subdependencies = uint64(len(lock.Packages))
+	}()
+
 	wg.Add(len(deps))
 	for depName, dep := range deps {
 		l := log.With().Str("package", depName).Logger()
@@ -67,7 +100,7 @@ func replaceDeps() {
 	}
 	wg.Wait()
 
-	printReport(modifiedPackage, removedDependencies, addedDependencies, deps)
+	printReport(pkg, statistics, removedDependencies, addedDependencies, deps)
 }
 
 func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc[npm.PackageJSON] {

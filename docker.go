@@ -29,7 +29,7 @@ func downloadBaseImage(c *docker_client.Client) error {
 	return jsonmessage.DisplayJSONMessagesStream(output, os.Stderr, termFd, isTerm, nil)
 }
 
-func installPackageInContainer(dockerC *docker_client.Client, package_ npm.DependencyInfo) (internal.TmpDir, error) {
+func installPackageInContainer(package_ npm.DependencyInfo) (internal.TmpDir, error) {
 	ctx := context.Background()
 
 	tmpDir, err := internal.NewTmpDir(fmt.Sprintf("package_size_%s_*", internal.SanetizeFileName(package_.String())))
@@ -45,6 +45,41 @@ func installPackageInContainer(dockerC *docker_client.Client, package_ npm.Depen
 	}
 
 	return tmpDir, nil
+}
+
+func modifyPackage(p npm.PackageJSON, toAdd []npm.DependencyInfo, toRemove []npm.DependencyInfo) (internal.TmpDir, error) {
+	for _, dep := range toRemove {
+		if ok := p.Dependencies.Remove(dep); !ok {
+			log.Warn().Str("dependency", dep.String()).Msg("Dependency not found")
+		}
+	}
+
+	for _, dep := range toAdd {
+		if err := p.Dependencies.Add(dep); err != nil {
+			log.Error().Err(err).Str("dependency", dep.String()).Msg("Failed to add dependency")
+		}
+	}
+
+	log.Debug().Msg("Modified package.json")
+
+	tmp, err := internal.NewTmpDir(fmt.Sprintf("package_size_%s_modified_*", internal.SanetizeFileName(p.Name)))
+	if err != nil {
+		return tmp, err
+	}
+
+	path := filepath.Join(string(tmp), "package.json")
+
+	if err := internal.WriteJSONFile(path, p); err != nil {
+		return tmp, err
+	}
+
+	log.Debug().Str("path", path).Msg("Wrote modified package.json")
+
+	if err := runContainer(context.Background(), []string{"npm", "install", "--loglevel", "verbose"}, tmp); err != nil {
+		return tmp, err
+	}
+
+	return tmp, nil
 }
 
 func runContainer(ctx context.Context, cmd []string, tmpDir internal.TmpDir) error {

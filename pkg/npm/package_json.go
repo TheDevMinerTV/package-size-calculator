@@ -72,6 +72,27 @@ func (d PackageDependencies) MarshalJSON() ([]byte, error) {
 	return json.Marshal(raw)
 }
 
+func (d *PackageDependencies) Remove(toRemove DependencyInfo) bool {
+	if _, ok := (*d)[toRemove.Name]; !ok {
+		return false
+	}
+
+	delete(*d, toRemove.Name)
+
+	return true
+}
+
+func (d *PackageDependencies) Add(toAdd DependencyInfo) error {
+	dep, err := newDependency(toAdd.Name, toAdd.Version)
+	if err != nil {
+		return err
+	}
+
+	(*d)[toAdd.Name] = dep
+
+	return nil
+}
+
 type Dependency struct {
 	Name          string
 	RawConstraint string

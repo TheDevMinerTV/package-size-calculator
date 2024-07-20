@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,4 +37,17 @@ func SanetizeFileName(path string) string {
 	path = strings.ReplaceAll(path, "|", "_")
 
 	return path
+}
+
+func WriteJSONFile(path string, content any) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+
+	return enc.Encode(content)
 }

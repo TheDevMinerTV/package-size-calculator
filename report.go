@@ -23,46 +23,32 @@ var (
 	arrow = gray.Sprint("→")
 )
 
+type ModifiedStats struct {
+	Size            uint64
+	Subdependencies uint64
+}
+
 func printReport(
-	modifiedPackage *packageInfo,
+	pkg *packageInfo,
+	statistics *ModifiedStats,
 	removedDependencies []npm.DependencyInfo,
 	addedDependencies []npm.PackageJSON,
 	deps map[string]*dependencyPackageInfo,
 ) {
-	package_ := modifiedPackage.Package
+	package_ := pkg.Package
 	packageJson := package_.JSON
-	downloadsLastWeek := modifiedPackage.Stats.DownloadsLastWeek
-	oldPackageSize := modifiedPackage.Stats.Size
-	oldSubdependencies := getSubdependenciesCount(modifiedPackage.Lockfile)
+	downloadsLastWeek := pkg.Stats.DownloadsLastWeek
+	oldPackageSize := pkg.Stats.Size
+	oldSubdependencies := getSubdependenciesCount(pkg.Lockfile)
 
 	modifiedPackageName := boldYellow.Sprint(packageJson.String())
-
-	newPackageSize := oldPackageSize
-	newSubdependencies := oldSubdependencies
-	packageSizeWithoutRemovedDeps := oldPackageSize
-	for _, p := range deps {
-		if p.Type == DependencyRemoved {
-			newPackageSize -= p.Size
-			packageSizeWithoutRemovedDeps -= p.Size
-			// This package
-			newSubdependencies -= 1
-			// It's subdependencies
-			newSubdependencies -= p.Subdependencies
-		} else {
-			newPackageSize += p.Size
-			// This package
-			newSubdependencies += 1
-			// It's subdependencies
-			newSubdependencies += p.Subdependencies
-		}
-	}
 
 	fmt.Println()
 	boldGreen.Println("Package size report")
 	boldGreen.Println("===================")
 
 	fmt.Println()
-	reportPackageInfo(modifiedPackage, true, 0)
+	reportPackageInfo(pkg, true, 0)
 
 	if len(removedDependencies) > 0 {
 		fmt.Println()
@@ -80,8 +66,8 @@ func printReport(
 			pcTrafficOfPackageFmt := stats.FormattedPercentOfPackageTraffic(oldPackageSize)
 			pcSubdeps := stats.PercentOfPackageSubdependencies(oldSubdependencies)
 
-			upperDLsFmt := modifiedPackage.Stats.FormattedDownloadsLastWeek()
-			upperDLsTrafficFmt := modifiedPackage.Stats.FormattedTrafficLastWeek()
+			upperDLsFmt := pkg.Stats.FormattedDownloadsLastWeek()
+			upperDLsTrafficFmt := pkg.Stats.FormattedTrafficLastWeek()
 
 			dlsFmt := stats.FormattedDownloadsLastWeek()
 			trafficFmt := stats.FormattedTrafficLastWeek()
@@ -140,7 +126,7 @@ func printReport(
 			info := deps[p.String()]
 
 			pcDLs := info.FormattedPercentDownloadsOfVersion()
-			pcSize := info.PercentOfPackageSize(packageSizeWithoutRemovedDeps)
+			pcSize := info.PercentOfPackageSize(oldPackageSize)
 			pcSubdeps := info.PercentOfPackageSubdependencies(oldSubdependencies)
 
 			dlsFmt := info.FormattedDownloadsLastWeek()
@@ -177,7 +163,7 @@ func printReport(
 	}
 
 	fmt.Println()
-	reportEstimatedStatistics(oldPackageSize, newPackageSize, downloadsLastWeek, modifiedPackage.Stats.TotalDownloads, oldSubdependencies, newSubdependencies)
+	reportEstimatedStatistics(oldPackageSize, statistics.Size, downloadsLastWeek, pkg.Stats.TotalDownloads, oldSubdependencies, statistics.Subdependencies)
 }
 
 func reportPackageInfo(modifiedPackage *packageInfo, showLatestVersionHint bool, indentation int) {
