@@ -70,8 +70,8 @@ func replaceDeps() {
 	printReport(modifiedPackage, removedDependencies, addedDependencies, deps)
 }
 
-func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc[*npm.PackageJSON] {
-	return func(s string) (*npm.PackageJSON, error) {
+func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc[npm.PackageJSON] {
+	return func(s string) (npm.PackageJSON, error) {
 		l := log.With().Str("package", s).Logger()
 
 		split := strings.SplitN(s, " ", 2)
@@ -85,7 +85,7 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 
 		info, err := client.GetPackageInfo(split[0])
 		if err != nil {
-			return nil, err
+			return npm.PackageJSON{}, err
 		}
 
 		if len(split) == 1 {
@@ -94,7 +94,7 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 			latest := info.LatestVersion.JSON
 			l.Info().Str("version", latest.Version).Msg("Found latest version")
 
-			return &latest, nil
+			return latest, nil
 		}
 
 		constraint := split[1]
@@ -104,19 +104,18 @@ func resolveNPMPackage(client *npm.Client) ui_components.StringToItemConvertFunc
 		c, err := npm_version.NewConstraints(constraint)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to create constraints")
-			return nil, ui_components.ErrRetry
+			return npm.PackageJSON{}, ui_components.ErrRetry
 		}
 
 		version := info.Versions.Match(c)
 		if version == nil {
 			log.Error().Msg("No matching version could be found")
-
-			return nil, ui_components.ErrRetry
+			return npm.PackageJSON{}, ui_components.ErrRetry
 		}
 
 		l.Info().Str("version", version.JSON.Version).Msg("Found version")
 
-		return &version.JSON, nil
+		return version.JSON, nil
 	}
 }
 
@@ -133,7 +132,7 @@ type dependencyPackageInfo struct {
 	Type dependencyPackageInfoType
 }
 
-func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependencies []*npm.PackageJSON) map[string]*dependencyPackageInfo {
+func combineDependencies(removedDependencies []npm.DependencyInfo, addedDependencies []npm.PackageJSON) map[string]*dependencyPackageInfo {
 	deps := map[string]*dependencyPackageInfo{}
 
 	for _, d := range removedDependencies {

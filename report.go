@@ -26,7 +26,7 @@ var (
 func printReport(
 	modifiedPackage *packageInfo,
 	removedDependencies []npm.DependencyInfo,
-	addedDependencies []*npm.PackageJSON,
+	addedDependencies []npm.PackageJSON,
 	deps map[string]*dependencyPackageInfo,
 ) {
 	package_ := modifiedPackage.Package
