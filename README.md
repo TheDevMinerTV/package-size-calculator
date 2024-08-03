@@ -23,10 +23,8 @@ Follow the official Docker installation guides for your platform:
 To calculate the size of an NPM package, run:
 
 ```bash
-package-size-calculator <package-name>
+package-size-calculator
 ```
-
-Replace `<package-name>` with the name of the NPM package you want to analyze.
 
 ### Additional Flags
 
@@ -48,3 +46,7 @@ go build -o package-size-calculator
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
+
+## License
+
+`package-size-calculator` is licensed under the MIT License. See the [LICENSE](LICENSE) file for the full license text.
