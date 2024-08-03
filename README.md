@@ -1,26 +1,52 @@
-# Package size calculator
+# Package Size Calculator
 
-Simple tool to calculate the size of a NPM package. It installs the package in a Docker container so any malicious packages won't affect your system.
+A simple tool to calculate the size of an NPM package. This tool installs the package in a Docker container to ensure that any potentially malicious packages do not affect your system.
 
-## Using
+## Installation
 
-You can find the built binaries [here](https://github.com/TheDevMinerTV/package-size-calculator/releases).
+You can download the pre-built binaries from the [Releases page](https://github.com/TheDevMinerTV/package-size-calculator/releases).
 
-> :warning: `package-size-calculator` requires having a Docker daemon running.
+## Prerequisites
+
+> :warning: `package-size-calculator` requires a running Docker daemon.
+
+### Installing Docker
+
+Follow the official Docker installation guides for your platform:
+
+- [Docker Desktop for Windows](https://docs.docker.com/desktop/install/windows-install/)
+- [Docker Desktop for Mac](https://docs.docker.com/desktop/install/mac-install/)
+- [Docker Engine for Linux](https://docs.docker.com/desktop/install/linux-install/#generic-installation-steps)
+
+## Usage
+
+To calculate the size of an NPM package, run:
 
 ```bash
 package-size-calculator
 ```
 
-The following additional flags are available:
-```
---short      : Print a shorter version of the package report, ideal for posts to Twitter
---no-cleanup : Don't remove the temporary directory after the calculation
+### Additional Flags
 
---npm-cache <DIRECTORY>: Use the specified directory as the NPM cache, defaults to generating a temporary directory
---npm-cache-read-write : Mount the NPM cache directory as read-write, defaults to true, only honored if --npm-cache is specified
+- `--short`: Prints a shorter version of the package report, ideal for social media posts.
+- `--no-cleanup`: Prevents the removal of the temporary directory after the calculation.
+- `--npm-cache <DIRECTORY>`: Specifies a directory to use as the NPM cache. Defaults to a temporary directory if not specified.
+- `--npm-cache-read-write`: Mounts the NPM cache directory as read-write. Defaults to true and is only honored if `--npm-cache` is specified.
+
+## Development
+
+### Building from Source
+
+To build the project from source, clone the repository and use the following commands:
+
+```bash
+go build -o package-size-calculator
 ```
+
+## Contributing
+
+Contributions are welcome! Please open an issue or submit a pull request for any improvements or bug fixes.
 
 ## License
 
-Package size calculator is licensed under the MIT License. See [LICENSE](LICENSE) for the full license text.
+`package-size-calculator` is licensed under the MIT License. See the [LICENSE](LICENSE) file for the full license text.
