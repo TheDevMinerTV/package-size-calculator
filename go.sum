@@ -7,6 +7,8 @@ github.com/Microsoft/go-winio v0.4.14 h1:+hMXMk01us9KgxGb7ftKQt2Xpf5hH/yky+TDA+q
 github.com/Microsoft/go-winio v0.4.14/go.mod h1:qXqCSQ3Xa7+6tgxaGTIe4Kpcdsi+P8jBhyzoq1bpyYA=
 github.com/aquasecurity/go-npm-version v0.0.0-20201110091526-0b796d180798 h1:eveqE9ivrt30CJ7dOajOfBavhZ4zPqHcZe/4tKp0alc=
 github.com/aquasecurity/go-npm-version v0.0.0-20201110091526-0b796d180798/go.mod h1:hxbJZtKlO4P8sZ9nztizR6XLoE33O+BkPmuYQ4ACyz0=
+github.com/aquasecurity/go-npm-version v0.0.1 h1:2i/MM+A4KI8AJrqJa/Cwsa4qyljA8S/qngPyQiIVHcA=
+github.com/aquasecurity/go-npm-version v0.0.1/go.mod h1:hxbJZtKlO4P8sZ9nztizR6XLoE33O+BkPmuYQ4ACyz0=
 github.com/aquasecurity/go-version v0.0.0-20201107203531-5e48ac5d022a h1:SMEtDBnLyP/EVOeJhj4yeR8GYPFpBsFBk3lSrpjZ8yI=
 github.com/aquasecurity/go-version v0.0.0-20201107203531-5e48ac5d022a/go.mod h1:9Beu8XsUNNfzml7WBf3QmyPToP1wm1Gj/Vc5UJKqTzU=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
