@@ -1,6 +1,6 @@
 module package_size_calculator
 
-go 1.22.4
+go 1.24
 
 require (
 	github.com/docker/docker v27.5.1+incompatible
@@ -19,7 +19,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.4.14 // indirect
-	github.com/aquasecurity/go-npm-version v0.0.1
+	github.com/aquasecurity/go-npm-version v0.0.2
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
