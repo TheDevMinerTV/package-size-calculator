@@ -1,12 +1,13 @@
 module package_size_calculator
 
-go 1.22.4
+go 1.24
 
 require (
 	github.com/docker/docker v27.5.1+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/manifoldco/promptui v0.9.0
-	github.com/puzpuzpuz/xsync/v3 v3.5.0
+	github.com/puzpuzpuz/xsync/v3 v3.5.1
+	github.com/puzpuzpuz/xsync/v4 v4.5.0
 	github.com/rs/zerolog v1.33.0
 )
 
