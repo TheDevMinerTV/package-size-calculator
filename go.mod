@@ -3,7 +3,7 @@ module package_size_calculator
 go 1.22.4
 
 require (
-	github.com/docker/docker v27.5.1+incompatible
+	github.com/docker/docker v28.5.2+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/manifoldco/promptui v0.9.0
 	github.com/puzpuzpuz/xsync/v3 v3.5.0
@@ -13,6 +13,8 @@ require (
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/aquasecurity/go-version v0.0.0-20201107203531-5e48ac5d022a // indirect
+	github.com/containerd/errdefs v1.0.0 // indirect
+	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )
